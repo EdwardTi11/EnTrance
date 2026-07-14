@@ -1,4 +1,3 @@
-import time
 import numpy as np
 from llama_cpp import Llama
 
