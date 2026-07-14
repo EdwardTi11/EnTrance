@@ -4,7 +4,7 @@ def log_softmax(logits: np.ndarray) -> np.ndarray:
     shifted = logits - np.max(logits)
     return shifted - np.log(np.exp(shifted).sum())
 
-class EnergyLogitProcessor:
+class EnergyProcessor:
     def __init__(
         self,
         model,
@@ -59,9 +59,3 @@ class EnergyLogitProcessor:
     def call(self, logits: np.ndarray, prev_tokens: list[int]) -> np.ndarray:
         r = self.repetition_fn(self.vocab_size, prev_tokens or [], self.repetition_window)
         return self.alpha * logits - self.beta * self.cost - self.gamma * r
-
-# E(x) = -alpha * logP(x) + beta * C(x) + gamma * R(x)
-alpha = 1.0    # weight on the model's own log-probability
-beta = 0.3     # weight on computation cost C(x)
-gamma = 0.8    # weight on repetition penalty R(x)
-repetition_window = 32  # how many recent tokens count toward R(x)
