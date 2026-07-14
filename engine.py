@@ -34,7 +34,7 @@ def sample_token(logits: np.ndarray, temperature: float, top_k: int, top_p: floa
     choice = rng.choice(len(idx), p=probs)
     selected_id = int(idx[choice])
     selected_prob = float(probs[choice])
-    return selected_id, selected_prob, idx, probs
+    return selected_id, selected_prob
 
 def generate_text(
     model: Llama,
@@ -63,7 +63,7 @@ def generate_text(
     for step in range(max_tokens):
         logits = np.array(model.scores[model.n_tokens - 1, :], dtype=np.float32)
 
-        selected_id, selected_prob, top_idx, top_probs = sample_token(
+        selected_id, selected_prob = sample_token(
             logits, temperature, top_k, top_p, rng, logit_processors=None, prev_tokens=generated_tokens
         )
 
