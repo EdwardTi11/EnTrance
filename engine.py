@@ -69,8 +69,6 @@ def generate_with_trace(
         eval_latency = time.perf_counter() - t_eval0
 
         logits = np.array(model.scores[model.n_tokens - 1, :], dtype=np.float32)
-        if step == 0:
-            print(f"logits stats: min={logits.min()}, max={logits.max()}, std={logits.std()}")
 
         t_sample0 = time.perf_counter()
         selected_id, selected_prob, top_idx, top_probs = sample_token(
@@ -133,7 +131,7 @@ steering_processor = lambda logits, prev: energy_gate.call(logits, prev)
 text, trace = generate_with_trace(
     model,
     input("Enter a prompt: "),
-    max_tokens=32,
+    max_tokens=256,
     prompt_formatter=format_prompt,
     seed=0,
 )
