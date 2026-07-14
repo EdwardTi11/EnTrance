@@ -107,31 +107,30 @@ def generate_with_trace(
     generated_text = model.detokenize(generated_tokens).decode("utf-8", errors="replace")
     return generated_text, trace
 
-if __name__ == "__main__":
-    model_path = r"C:\Users\etito\Projects\EnTrance\models\DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf"
-    
-    model = Llama(
-        model_path=model_path,
-        n_ctx=2048,
-        n_threads=4,
-        verbose=False,
-        logits_all=True
-    )
+model_path = r"C:\Users\etito\Projects\EnTrance\models\DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf"
 
-    text, trace = generate_with_trace(
-        model,
-        input("Enter a prompt: "),
-        max_tokens=32,
-        prompt_formatter=format_prompt,
-        seed=0,
-    )
+model = Llama(
+    model_path=model_path,
+    n_ctx=2048,
+    n_threads=4,
+    verbose=False,
+    logits_all=True
+)
 
-    print(text + "\n")
-    print(f"Token IDs: {[t['selected_token_id'] for t in trace]}\n")
+text, trace = generate_with_trace(
+    model,
+    input("Enter a prompt: "),
+    max_tokens=32,
+    prompt_formatter=format_prompt,
+    seed=0,
+)
 
-    print("\n=== DIAGNOSTIC INFO ===\n")
-    print(f"top5_token_ids: {trace[0]['top5_token_ids']}\n")
-    print(f"top5_probs: {trace[0]['top5_probs']}\n")
-    print(f"top5_token_strs: {[model.detokenize([t]).decode('utf-8', errors='replace') for t in trace[0]['top5_token_ids']]}\n")
-    print(f"selected_token_id: {trace[0]['selected_token_id']}\n")
-    print(f"selected_token_str: {trace[0]['selected_token_str']!r}\n")
+print(text + "\n")
+print(f"Token IDs: {[t['selected_token_id'] for t in trace]}\n")
+
+print("\n=== DIAGNOSTIC INFO ===\n")
+print(f"top5_token_ids: {trace[0]['top5_token_ids']}\n")
+print(f"top5_probs: {trace[0]['top5_probs']}\n")
+print(f"top5_token_strs: {[model.detokenize([t]).decode('utf-8', errors='replace') for t in trace[0]['top5_token_ids']]}\n")
+print(f"selected_token_id: {trace[0]['selected_token_id']}\n")
+print(f"selected_token_str: {trace[0]['selected_token_str']!r}\n")
