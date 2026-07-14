@@ -37,69 +37,61 @@ def sample_token(logits: np.ndarray, temperature: float, top_k: int, top_p: floa
     selected_prob = float(probs[choice])
     return selected_id, selected_prob, idx, probs
 
-def generate_with_trace(
+def generate_text(
     model: Llama,
     prompt: str,
-    max_tokens: int = 64,
+    energy_gate,
+    energy_threshold: float,
+    max_tokens: int = 128,
     temperature: float = 0.8,
     top_k: int = 40,
     top_p: float = 0.95,
     stop_tokens: list[int] | None = None,
     prompt_formatter=None,
-    logit_processors=None,
-    trace_mode: str = "full",
     seed: int | None = None,
 ):
-    if trace_mode not in ("full", "compact"):
-        raise ValueError("trace_mode must be 'full' or 'compact'")
     if prompt_formatter:
         prompt = prompt_formatter(prompt)
 
     rng = np.random.default_rng(seed)
     tokens = model.tokenize(prompt.encode("utf-8"))
 
-    t_eval0 = time.perf_counter()
     model.eval(tokens)
     trace = []
     generated_tokens = []
     stop_tokens = stop_tokens or [model.token_eos()]
 
     for step in range(max_tokens):
-        eval_latency = time.perf_counter() - t_eval0
-
         logits = np.array(model.scores[model.n_tokens - 1, :], dtype=np.float32)
 
-        t_sample0 = time.perf_counter()
         selected_id, selected_prob, top_idx, top_probs = sample_token(
-            logits, temperature, top_k, top_p, rng, logit_processors, generated_tokens
+            logits, temperature, top_k, top_p, rng, logit_processors=None, prev_tokens=generated_tokens
         )
-        sample_latency = time.perf_counter() - t_sample0
 
-        top5 = top_probs[:5]
+        energy_landscape = energy_gate.energy(logits, generated_tokens)
+        token_energy = energy_landscape[selected_id]
+
+        token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
+
+        if token_energy > energy_threshold:
+            print(f"\n🛑 [ENERGY SPIKE DETECTED] Token: {token_str!r} | Energy: {token_energy:.4f} > {energy_threshold}")
+            print("Halting linear execution immediately to prepare for search...")
+            break
+
         entry = {
             "token_position": model.n_tokens,
             "cumulative_tokens": step + 1,
             "selected_token_id": selected_id,
-            "selected_token_str": model.detokenize([selected_id]).decode("utf-8", errors="replace"),
+            "selected_token_str": token_str,
             "selected_token_prob": selected_prob,
-            "top5_token_ids": top_idx[:5].tolist(),
-            "top5_probs": top5.tolist(),
-            "entropy": float(-np.sum(top_probs * np.log(top_probs + 1e-12))),
-            "margin": float(logits[top_idx[0]] - logits[top_idx[1]]) if len(top_idx) > 1 else 0.0,
-            "sample_latency_s": sample_latency,
-            "eval_latency_s": eval_latency,
+            "energy": token_energy,
         }
-        if trace_mode == "full":
-            entry["logits"] = logits
-            entry["probabilities"] = full_softmax(logits)
-
         trace.append(entry)
         generated_tokens.append(selected_id)
 
         if selected_id in stop_tokens:
             break
 
-        t_eval0 = time.perf_counter()
         model.eval([selected_id])
 
     generated_text = model.detokenize(generated_tokens).decode("utf-8", errors="replace")
