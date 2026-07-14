@@ -55,7 +55,3 @@ class EnergyProcessor:
         logp = log_softmax(logits)
         r = self.repetition_fn(self.vocab_size, prev_tokens or [], self.repetition_window)
         return -self.alpha * logp + self.beta * self.cost + self.gamma * r
-
-    def call(self, logits: np.ndarray, prev_tokens: list[int]) -> np.ndarray:
-        r = self.repetition_fn(self.vocab_size, prev_tokens or [], self.repetition_window)
-        return self.alpha * logits - self.beta * self.cost - self.gamma * r
