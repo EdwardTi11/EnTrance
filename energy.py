@@ -56,11 +56,10 @@ class EnergyLogitProcessor:
         r = self.repetition_fn(self.vocab_size, prev_tokens or [], self.repetition_window)
         return -self.alpha * logp + self.beta * self.cost + self.gamma * r
 
-    def __call__(self, logits: np.ndarray, prev_tokens: list[int]) -> np.ndarray:
+    def call(self, logits: np.ndarray, prev_tokens: list[int]) -> np.ndarray:
         r = self.repetition_fn(self.vocab_size, prev_tokens or [], self.repetition_window)
         return self.alpha * logits - self.beta * self.cost - self.gamma * r
 
-# ---- energy equation weights, tune these and re-run ----
 # E(x) = -alpha * logP(x) + beta * C(x) + gamma * R(x)
 alpha = 1.0    # weight on the model's own log-probability
 beta = 0.3     # weight on computation cost C(x)

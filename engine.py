@@ -1,9 +1,10 @@
 import time
 import numpy as np
 from llama_cpp import Llama
+from energy import EnergyLogitProcessor
 
 def format_prompt(user_message: str) -> str:
-    return f"<｜User｜>{user_message}<｜Assistant｜><think>\n"
+    return f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
 
 def full_softmax(logits: np.ndarray) -> np.ndarray:
     shifted = logits - np.max(logits)
@@ -107,7 +108,7 @@ def generate_with_trace(
     generated_text = model.detokenize(generated_tokens).decode("utf-8", errors="replace")
     return generated_text, trace
 
-model_path = r"C:\Users\etito\Projects\EnTrance\models\DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf"
+model_path = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
 
 model = Llama(
     model_path=model_path,
@@ -117,6 +118,18 @@ model = Llama(
     logits_all=True
 )
 
+energy_gate = EnergyLogitProcessor(
+    model=model,
+    alpha=1.0,
+    beta=0.3,
+    gamma=0.8,
+    repetition_window=32
+)
+
+ENERGY_THRESHOLD = 4.0
+
+steering_processor = lambda logits, prev: energy_gate.call(logits, prev)
+
 text, trace = generate_with_trace(
     model,
     input("Enter a prompt: "),
@@ -125,12 +138,24 @@ text, trace = generate_with_trace(
     seed=0,
 )
 
+print("\n--- Model Output ---")
 print(text + "\n")
-print(f"Token IDs: {[t['selected_token_id'] for t in trace]}\n")
 
-print("\n=== DIAGNOSTIC INFO ===\n")
-print(f"top5_token_ids: {trace[0]['top5_token_ids']}\n")
-print(f"top5_probs: {trace[0]['top5_probs']}\n")
-print(f"top5_token_strs: {[model.detokenize([t]).decode('utf-8', errors='replace') for t in trace[0]['top5_token_ids']]}\n")
-print(f"selected_token_id: {trace[0]['selected_token_id']}\n")
-print(f"selected_token_str: {trace[0]['selected_token_str']!r}\n")
+# 6. Audit your live threshold metrics
+print("\n=== Live Energy Evaluation ===")
+historical_tokens = []
+for entry in trace:
+    token_id = entry["selected_token_id"]
+    token_str = entry["selected_token_str"]
+    step_logits = entry["logits"]
+    
+    # Run the raw energy function post-step to see how well it guarded the loop
+    energy_landscape = energy_gate.energy(step_logits, historical_tokens)
+    token_energy = energy_landscape[token_id]
+    
+    print(f"Token: {token_str!r:<10} | Energy: {token_energy:.4f}")
+    
+    if token_energy > ENERGY_THRESHOLD:
+        print(f"🛑 [ENERGY SPIKE] Value {token_energy:.2f} crossed your threshold limit!")
+        
+    historical_tokens.append(token_id)
