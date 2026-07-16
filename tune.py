@@ -3,12 +3,7 @@ from llama_cpp import Llama
 from engine import generate_text, format_prompt
 from energy import EnergyProcessor
 from search import EGALBSSearch
-
-VALIDATION_PROMPTS = [
-    "Write a quick python function to reverse a string.",
-    "Explain what a KV-cache is in one sentence.",
-    "Count from 1 to 5, but repeat the word 'banana' between every number.",
-]
+from config import TUNING_SUITE
 
 MODEL_PATH = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
 
@@ -32,7 +27,7 @@ def objective(trial):
     total_score = 0.0
     
     try:
-        for prompt in VALIDATION_PROMPTS:
+        for prompt in list(TUNING_SUITE.values()):
             _, trace = generate_text(
                 model=model,
                 prompt=prompt,
