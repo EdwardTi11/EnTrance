@@ -51,7 +51,14 @@ class EnergyProcessor:
         counts = np.bincount(recent, minlength=vocab_size).astype(np.float32)
         return counts[:vocab_size]
 
-    def energy(self, logits: np.ndarray, prev_tokens: list[int]) -> np.ndarray:
+    def energy(self, logits: np.ndarray, prev_tokens: list[int], token_id: int | None = None) -> float | np.ndarray:
+        if token_id is not None:
+            shifted = logits - np.max(logits)
+            logp_token = shifted[token_id] - np.log(np.exp(shifted).sum())
+            recent = prev_tokens[-self.repetition_window:] if prev_tokens else []
+            r_token = float(recent.count(token_id))
+            return float(-self.alpha * logp_token + self.beta * self.cost[token_id] + self.gamma * r_token)
+
         logp = log_softmax(logits)
         r = self.repetition_fn(self.vocab_size, prev_tokens or [], self.repetition_window)
         return -self.alpha * logp + self.beta * self.cost + self.gamma * r

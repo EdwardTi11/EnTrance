@@ -70,8 +70,7 @@ def generate_text(
             logits, temperature, top_k, top_p, rng, logit_processors=None, prev_tokens=generated_tokens
         )
 
-        energy_landscape = energy_gate.energy(logits, generated_tokens)
-        token_energy = energy_landscape[selected_id]
+        token_energy = energy_gate.energy(logits, generated_tokens, token_id=selected_id)
         token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
 
         if should_trigger_search(token_energy, energy_threshold):

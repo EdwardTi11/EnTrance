@@ -24,5 +24,5 @@ text, trace = generate_text(
     seed=0,
 )
 
-print("\n--- Final Model Output (Protected) ---")
+print("\n--- Final Model Output ---")
 print(text + "\n")
