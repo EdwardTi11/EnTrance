@@ -26,5 +26,3 @@ text, trace = generate_text(
 
 print("\n--- Final Model Output (Protected) ---")
 print(text + "\n")
-
-del model

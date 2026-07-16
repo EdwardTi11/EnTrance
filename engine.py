@@ -1,5 +1,6 @@
 import numpy as np
 from llama_cpp import Llama
+from search import EGALBSSearch, should_trigger_search
 
 def format_prompt(user_message: str) -> str:
     return f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
@@ -48,6 +49,7 @@ def generate_text(
     stop_tokens: list[int] | None = None,
     prompt_formatter=None,
     seed: int | None = None,
+    search_engine=None,
 ):
     if prompt_formatter:
         prompt = prompt_formatter(prompt)
@@ -59,8 +61,9 @@ def generate_text(
     trace = []
     generated_tokens = []
     stop_tokens = stop_tokens or [model.token_eos()]
+    search_engine = search_engine or EGALBSSearch()
 
-    for step in range(max_tokens):
+    while len(generated_tokens) < max_tokens:
         logits = np.array(model.scores[model.n_tokens - 1, :], dtype=np.float32)
 
         selected_id, selected_prob = sample_token(
@@ -69,17 +72,44 @@ def generate_text(
 
         energy_landscape = energy_gate.energy(logits, generated_tokens)
         token_energy = energy_landscape[selected_id]
-
         token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
 
-        if token_energy > energy_threshold:
+        if should_trigger_search(token_energy, energy_threshold):
             print(f"\n🛑 [ENERGY SPIKE DETECTED] Token: {token_str!r} | Energy: {token_energy:.4f} > {energy_threshold}")
-            print("Halting linear execution immediately to prepare for search...")
-            break
+            print("Pausing linear decoding, running EGALBS search...")
+
+            search_result = search_engine.run(model, energy_gate, logits, generated_tokens)
+            start_position = model.n_tokens
+
+            for i, winning_id in enumerate(search_result["winning_tokens"]):
+                winning_str = model.detokenize([winning_id]).decode("utf-8", errors="replace")
+                entry = {
+                    "token_position": start_position + i,
+                    "cumulative_tokens": len(generated_tokens) + 1,
+                    "selected_token_id": winning_id,
+                    "selected_token_str": winning_str,
+                    "selected_token_prob": None,
+                    "energy": search_result["winning_token_energies"][i],
+                    "source": "search",
+                }
+                trace.append(entry)
+                generated_tokens.append(winning_id)
+
+                if winning_id in stop_tokens or len(generated_tokens) >= max_tokens:
+                    break
+
+            print(
+                f"Resuming linear decoding after {len(search_result['winning_tokens'])} "
+                f"search-injected tokens (winning energy: {search_result['winning_energy']:.4f})\n"
+            )
+
+            if generated_tokens and generated_tokens[-1] in stop_tokens:
+                break
+            continue
 
         entry = {
             "token_position": model.n_tokens,
-            "cumulative_tokens": step + 1,
+            "cumulative_tokens": len(generated_tokens) + 1,
             "selected_token_id": selected_id,
             "selected_token_str": token_str,
             "selected_token_prob": selected_prob,
