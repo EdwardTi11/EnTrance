@@ -1,9 +1,9 @@
 import optuna
 from llama_cpp import Llama
-from engine import generate_text, format_prompt
+from engine import generate_text
 from energy import EnergyProcessor
 from search import EGALBSSearch
-from config import TUNING_SUITE
+from prompt_config import TUNING_SUITE
 
 MODEL_PATH = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
 
@@ -33,7 +33,6 @@ def objective(trial):
                 prompt=prompt,
                 energy_gate=energy_gate,
                 energy_threshold=energy_threshold,
-                prompt_formatter=format_prompt,
                 seed=42,
                 search_engine=search_engine,
                 max_tokens=150

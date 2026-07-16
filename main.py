@@ -1,5 +1,5 @@
 from llama_cpp import Llama
-from engine import generate_text, format_prompt
+from engine import generate_text
 from energy import EnergyProcessor
 from search import EGALBSSearch
 
@@ -24,7 +24,6 @@ text, trace = generate_text(
     energy_gate=energy_gate,
     energy_threshold=ENERGY_THRESHOLD,
     search_engine=search_engine,
-    prompt_formatter=format_prompt,
     seed=0,
 )
 

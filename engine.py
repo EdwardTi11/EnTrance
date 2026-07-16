@@ -2,9 +2,6 @@ import numpy as np
 from llama_cpp import Llama
 from search import should_trigger_search
 
-def format_prompt(user_message: str) -> str:
-    return f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
-
 def full_softmax(logits: np.ndarray) -> np.ndarray:
     shifted = logits - np.max(logits)
     exp = np.exp(shifted)
@@ -48,11 +45,8 @@ def generate_text(
     top_k: int = 40,
     top_p: float = 0.95,
     stop_tokens: list[int] | None = None,
-    prompt_formatter=None,
     seed: int | None = None,
 ):
-    if prompt_formatter:
-        prompt = prompt_formatter(prompt)
 
     rng = np.random.default_rng(seed)
     tokens = model.tokenize(prompt.encode("utf-8"))
