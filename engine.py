@@ -42,7 +42,7 @@ def generate_text(
     prompt: str,
     energy_gate,
     energy_threshold: float,
-    max_tokens: int = 128,
+    max_tokens: int | None = None,
     temperature: float = 0.8,
     top_k: int = 40,
     top_p: float = 0.95,
@@ -56,6 +56,13 @@ def generate_text(
 
     rng = np.random.default_rng(seed)
     tokens = model.tokenize(prompt.encode("utf-8"))
+
+    remaining_budget = model.n_ctx() - len(tokens) - 4
+
+    if max_tokens is None or max_tokens <= 0:
+        max_tokens = remaining_budget
+    else:
+        max_tokens = min(max_tokens, remaining_budget)
 
     model.eval(tokens)
     trace = []
