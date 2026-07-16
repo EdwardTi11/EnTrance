@@ -33,7 +33,7 @@ class EGALBSSearch:
             next_token = candidate
             step_logits = logits
  
-            for step in range(self.lookahead_depth):
+            for _ in range(self.lookahead_depth):
                 token_energy = energy_gate.energy(step_logits, local_history, token_id=next_token)
                 cumulative_energy += token_energy
                 beam_tokens.append(next_token)
