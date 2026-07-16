@@ -1,6 +1,6 @@
 import numpy as np
 from llama_cpp import Llama
-from search import EGALBSSearch, should_trigger_search
+from search import should_trigger_search
 
 def format_prompt(user_message: str) -> str:
     return f"<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
@@ -42,6 +42,7 @@ def generate_text(
     prompt: str,
     energy_gate,
     energy_threshold: float,
+    search_engine,
     max_tokens: int | None = None,
     temperature: float = 0.8,
     top_k: int = 40,
@@ -49,7 +50,6 @@ def generate_text(
     stop_tokens: list[int] | None = None,
     prompt_formatter=None,
     seed: int | None = None,
-    search_engine=None,
 ):
     if prompt_formatter:
         prompt = prompt_formatter(prompt)
@@ -68,7 +68,6 @@ def generate_text(
     trace = []
     generated_tokens = []
     stop_tokens = stop_tokens or [model.token_eos()]
-    search_engine = search_engine or EGALBSSearch()
 
     while len(generated_tokens) < max_tokens:
         logits = np.array(model.scores[model.n_tokens - 1, :], dtype=np.float32)
@@ -86,8 +85,12 @@ def generate_text(
 
             search_result = search_engine.run(model, energy_gate, logits, generated_tokens)
             start_position = model.n_tokens
+            winning_tokens = search_result["winning_tokens"]
 
-            for i, winning_id in enumerate(search_result["winning_tokens"]):
+            if winning_tokens:
+                model.eval(winning_tokens)
+
+            for i, winning_id in enumerate(winning_tokens):
                 winning_str = model.detokenize([winning_id]).decode("utf-8", errors="replace")
                 entry = {
                     "token_position": start_position + i,
@@ -105,7 +108,7 @@ def generate_text(
                     break
 
             print(
-                f"Resuming linear decoding after {len(search_result['winning_tokens'])} "
+                f"Resuming linear decoding after {len(winning_tokens)} "
                 f"search-injected tokens (winning energy: {search_result['winning_energy']:.4f})\n"
             )
 

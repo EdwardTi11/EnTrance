@@ -52,7 +52,6 @@ class EGALBSSearch:
         winning_tokens, winning_energy, winning_token_energies = min(beams, key=lambda beam: beam[1])
 
         model.load_state(pause_state)
-        model.eval(winning_tokens)
  
         return {
             "winning_tokens": winning_tokens,
