@@ -2,11 +2,6 @@ import numpy as np
 from llama_cpp import Llama
 from search import should_trigger_search
 
-def full_softmax(logits: np.ndarray) -> np.ndarray:
-    shifted = logits - np.max(logits)
-    exp = np.exp(shifted)
-    return exp / exp.sum()
-
 def topk_softmax(logits: np.ndarray, k: int):
     k = min(k, logits.shape[0])
     idx = np.argpartition(logits, -k)[-k:]
@@ -47,7 +42,6 @@ def generate_text(
     stop_tokens: list[int] | None = None,
     seed: int | None = None,
 ):
-
     rng = np.random.default_rng(seed)
     tokens = model.tokenize(prompt.encode("utf-8"))
 
@@ -59,21 +53,21 @@ def generate_text(
         max_tokens = min(max_tokens, remaining_budget)
 
     model.eval(tokens)
-    trace = []
+    trace_data = []
     generated_tokens = []
     stop_tokens = stop_tokens or [model.token_eos()]
 
     while len(generated_tokens) < max_tokens:
-        logits = np.array(model.scores[model.n_tokens - 1, :], dtype=np.float32)
+        logits = model.scores[model.n_tokens - 1]
 
         selected_id, selected_prob = sample_token(
             logits, temperature, top_k, top_p, rng, logit_processors=None, prev_tokens=generated_tokens
         )
 
         token_energy = energy_gate.energy(logits, generated_tokens, token_id=selected_id)
-        token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
 
         if should_trigger_search(token_energy, energy_threshold):
+            token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
             print(f"\n🛑 [ENERGY SPIKE DETECTED] Token: {token_str!r} | Energy: {token_energy:.4f} > {energy_threshold}")
             print("Pausing linear decoding, running EGALBS search...")
 
@@ -85,17 +79,16 @@ def generate_text(
                 model.eval(winning_tokens)
 
             for i, winning_id in enumerate(winning_tokens):
-                winning_str = model.detokenize([winning_id]).decode("utf-8", errors="replace")
                 entry = {
                     "token_position": start_position + i,
                     "cumulative_tokens": len(generated_tokens) + 1,
                     "selected_token_id": winning_id,
-                    "selected_token_str": winning_str,
+                    "selected_token_str": None,
                     "selected_token_prob": None,
                     "energy": search_result["winning_token_energies"][i],
                     "source": "search",
                 }
-                trace.append(entry)
+                trace_data.append(entry)
                 generated_tokens.append(winning_id)
 
                 if winning_id in stop_tokens or len(generated_tokens) >= max_tokens:
@@ -114,11 +107,12 @@ def generate_text(
             "token_position": model.n_tokens,
             "cumulative_tokens": len(generated_tokens) + 1,
             "selected_token_id": selected_id,
-            "selected_token_str": token_str,
+            "selected_token_str": None,
             "selected_token_prob": selected_prob,
             "energy": token_energy,
+            "source": "linear"
         }
-        trace.append(entry)
+        trace_data.append(entry)
         generated_tokens.append(selected_id)
 
         if selected_id in stop_tokens:
@@ -127,4 +121,8 @@ def generate_text(
         model.eval([selected_id])
 
     generated_text = model.detokenize(generated_tokens).decode("utf-8", errors="replace")
-    return generated_text, trace
+    
+    for entry in trace_data:
+        entry["selected_token_str"] = model.detokenize([entry["selected_token_id"]]).decode("utf-8", errors="replace")
+
+    return generated_text, trace_data
