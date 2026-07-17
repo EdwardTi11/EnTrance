@@ -43,7 +43,15 @@ def generate_text(
     seed: int | None = None,
 ):
     rng = np.random.default_rng(seed)
-    tokens = model.tokenize(prompt.encode("utf-8"))
+
+    messages = [{"role": "user", "content": prompt}]
+    
+    try:
+        formatted_prompt = model.chat_format_handler(messages=messages)["prompt"]
+    except Exception:
+        formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
+    tokens = model.tokenize(formatted_prompt.encode("utf-8"))
 
     remaining_budget = model.n_ctx() - len(tokens) - 4
 
