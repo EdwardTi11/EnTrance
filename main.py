@@ -13,10 +13,10 @@ model = Llama(
     logits_all=True
 )
 
-energy_gate = EnergyProcessor(model=model, alpha=1.0, beta=0.3, gamma=0.8)
-ENERGY_THRESHOLD = 4.0
+energy_gate = EnergyProcessor(model=model, alpha=1.7766, beta=0.891, gamma=1.4413)
+ENERGY_THRESHOLD = 3.6743
 
-search_engine = EGALBSSearch(beam_width=4, lookahead_depth=8)
+search_engine = EGALBSSearch(beam_width=4, lookahead_depth=11)
 
 text, trace = generate_text(
     model=model,

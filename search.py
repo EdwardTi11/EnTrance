@@ -23,7 +23,8 @@ class EGALBSSearch:
         candidates = top_k_candidates(logits, self.beam_width)
 
         beams = []
-        best_winning_energy = float('inf')  # Used for early pruning
+        best_winning_energy = float('inf')  
+        search_forward_passes = 0  # Combined Metric: Counts active model evaluations
 
         for candidate in candidates:
             model.n_tokens = original_n_tokens
@@ -36,6 +37,8 @@ class EGALBSSearch:
             step_logits = logits
 
             for _ in range(self.lookahead_depth):
+                search_forward_passes += 1  # Track every speculative forward pass
+                
                 token_energy = energy_gate.energy(step_logits, local_history, token_id=next_token)
                 cumulative_energy += token_energy
 
@@ -72,4 +75,5 @@ class EGALBSSearch:
             "winning_energy": winning_energy,
             "winning_token_energies": winning_token_energies,
             "beam_energies": [energy for _, energy, _ in beams],
+            "search_forward_passes": search_forward_passes  # Clear computational workload
         }

@@ -5,6 +5,9 @@ def log_softmax(logits: np.ndarray) -> np.ndarray:
     return shifted - np.log(np.exp(shifted).sum())
 
 class EnergyProcessor:
+    _cached_cost: np.ndarray | None = None
+    _cached_vocab_size: int | None = None
+
     def __init__(
         self,
         model,
@@ -27,8 +30,16 @@ class EnergyProcessor:
         )
 
         if beta != 0.0:
-            build_cost = cost_fn or self.default_cost
-            self.cost = build_cost(self.vocab_size, model)
+            if (
+                EnergyProcessor._cached_cost is not None 
+                and EnergyProcessor._cached_vocab_size == self.vocab_size
+            ):
+                self.cost = EnergyProcessor._cached_cost
+            else:
+                build_cost = cost_fn or self.default_cost
+                self.cost = build_cost(self.vocab_size, model)
+                EnergyProcessor._cached_cost = self.cost
+                EnergyProcessor._cached_vocab_size = self.vocab_size
         else:
             self.cost = np.zeros(self.vocab_size, dtype=np.float32)
 
@@ -55,8 +66,10 @@ class EnergyProcessor:
         if token_id is not None:
             shifted = logits - np.max(logits)
             logp_token = shifted[token_id] - np.log(np.exp(shifted).sum())
+            
             recent = prev_tokens[-self.repetition_window:] if prev_tokens else []
             r_token = float(recent.count(token_id))
+            
             return float(-self.alpha * logp_token + self.beta * self.cost[token_id] + self.gamma * r_token)
 
         logp = log_softmax(logits)
