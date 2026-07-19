@@ -1,9 +1,9 @@
 import re
 import numpy as np
 from llama_cpp import Llama
-from engine import generate_text
-from energy import EnergyProcessor
-from search import EGALBSSearch
+from model_design.engine import generate_text
+from model_design.energy import EnergyProcessor
+from model_design.search import EGALBSSearch
 from prompt_config import TESTING_SUITE
 
 # 1. Model File Paths

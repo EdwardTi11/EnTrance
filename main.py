@@ -1,7 +1,7 @@
 from llama_cpp import Llama
-from engine import generate_text
-from energy import EnergyProcessor
-from search import EGALBSSearch
+from model_design.engine import generate_text
+from model_design.energy import EnergyProcessor
+from model_design.search import EGALBSSearch
 
 model_path = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
 

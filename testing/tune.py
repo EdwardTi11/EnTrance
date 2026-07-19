@@ -2,9 +2,9 @@ import optuna
 import optunahub
 import re
 from llama_cpp import Llama
-from engine import generate_text
-from energy import EnergyProcessor
-from search import EGALBSSearch
+from model_design.engine import generate_text
+from model_design.energy import EnergyProcessor
+from model_design.search import EGALBSSearch
 from prompt_config import TUNING_SUITE
 
 mm_module = optunahub.load_module("pruners/multi_metric_pruner")

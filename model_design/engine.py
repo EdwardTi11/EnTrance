@@ -1,6 +1,6 @@
 import numpy as np
 from llama_cpp import Llama
-from search import should_trigger_search
+from model_design.search import should_trigger_search
 
 def topk_softmax(logits: np.ndarray, k: int):
     k = min(k, logits.shape[0])
