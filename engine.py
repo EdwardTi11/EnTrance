@@ -40,7 +40,7 @@ def generate_text(
     top_k: int = 40,
     top_p: float = 0.95,
     stop_tokens: list[int] | None = None,
-    seed: int | None = None,
+    seed: int | None = None
 ):
     rng = np.random.default_rng(seed)
 
@@ -95,13 +95,14 @@ def generate_text(
                     "selected_token_prob": None,
                     "energy": search_result["winning_token_energies"][i],
                     "source": "search",
+                    "search_forward_passes": search_result["search_forward_passes"] if i == 0 else 0
                 }
                 trace_data.append(entry)
                 generated_tokens.append(winning_id)
 
                 if winning_id in stop_tokens or len(generated_tokens) >= max_tokens:
                     break
-
+                
             print(
                 f"Resuming linear decoding after {len(winning_tokens)} "
                 f"search-injected tokens (winning energy: {search_result['winning_energy']:.4f})\n"

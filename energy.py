@@ -65,7 +65,8 @@ class EnergyProcessor:
     def energy(self, logits: np.ndarray, prev_tokens: list[int], token_id: int | None = None) -> float | np.ndarray:
         if token_id is not None:
             shifted = logits - np.max(logits)
-            logp_token = shifted[token_id] - np.log(np.exp(shifted).sum())
+            sum_exp = np.exp(shifted).sum()
+            logp_token = shifted[token_id] - np.log(sum_exp)
             
             recent = prev_tokens[-self.repetition_window:] if prev_tokens else []
             r_token = float(recent.count(token_id))

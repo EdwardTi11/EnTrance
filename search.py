@@ -24,10 +24,15 @@ class EGALBSSearch:
 
         beams = []
         best_winning_energy = float('inf')  
-        search_forward_passes = 0  # Combined Metric: Counts active model evaluations
+        search_forward_passes = 0
 
         for candidate in candidates:
             model.n_tokens = original_n_tokens
+
+            try:
+                model._ctx.kv_cache_seq_rm(seq_id=-1, p0=original_n_tokens, p1=-1)
+            except AttributeError:
+                pass
 
             beam_tokens = []
             token_energies = []
@@ -37,8 +42,6 @@ class EGALBSSearch:
             step_logits = logits
 
             for _ in range(self.lookahead_depth):
-                search_forward_passes += 1  # Track every speculative forward pass
-                
                 token_energy = energy_gate.energy(step_logits, local_history, token_id=next_token)
                 cumulative_energy += token_energy
 
@@ -50,6 +53,7 @@ class EGALBSSearch:
                 local_history.append(next_token)
                 
                 model.eval([next_token])
+                search_forward_passes += 1
 
                 if next_token == model.token_eos():
                     break
@@ -62,6 +66,10 @@ class EGALBSSearch:
                 best_winning_energy = cumulative_energy
 
         model.n_tokens = original_n_tokens
+        try:
+            model._ctx.kv_cache_seq_rm(seq_id=-1, p0=original_n_tokens, p1=-1)
+        except AttributeError:
+            pass
 
         if not beams:
             winning_tokens = [candidates[0]]
@@ -75,5 +83,5 @@ class EGALBSSearch:
             "winning_energy": winning_energy,
             "winning_token_energies": winning_token_energies,
             "beam_energies": [energy for _, energy, _ in beams],
-            "search_forward_passes": search_forward_passes  # Clear computational workload
+            "search_forward_passes": search_forward_passes,
         }

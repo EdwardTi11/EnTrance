@@ -15,7 +15,7 @@ MODEL_PATH = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-inst
 
 model = Llama(
     model_path=MODEL_PATH,
-    n_ctx=1024,
+    n_ctx=2048,
     n_threads=4,
     verbose=False,
     logits_all=True
@@ -27,7 +27,7 @@ def objective(trial):
     alpha = trial.suggest_float("alpha", 0.5, 2.5)
     beta = trial.suggest_float("beta", 0.0, 2.0)
     gamma = trial.suggest_float("gamma", 0.1, 1.5)
-    energy_threshold = trial.suggest_float("energy_threshold", 1.5, 6.0)
+    energy_threshold = trial.suggest_float("energy_threshold", 2.5, 6.0)
     beam_width = trial.suggest_int("beam_width", 2, 6)
     lookahead_depth = trial.suggest_int("lookahead_depth", 4, 12)
     
@@ -89,7 +89,7 @@ def objective(trial):
     return total_errors, total_forward_passes
 
 if __name__ == "__main__":
-    base_pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=3)
+    base_pruner = optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=3)
     
     mo_pruner = MultiMetricPruner(
         base_pruner, 
