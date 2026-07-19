@@ -23,8 +23,10 @@ class EGALBSSearch:
         candidates = top_k_candidates(logits, self.beam_width)
 
         beams = []
-        best_winning_energy = float('inf')  
+        best_winning_energy = float('inf')
         search_forward_passes = 0
+        window = getattr(energy_gate, "repetition_window", None)
+        history_tail = prev_tokens[-window:] if window else prev_tokens
 
         for candidate in candidates:
             model.n_tokens = original_n_tokens
@@ -36,7 +38,7 @@ class EGALBSSearch:
 
             beam_tokens = []
             token_energies = []
-            local_history = list(prev_tokens)
+            local_history = list(history_tail)
             cumulative_energy = 0.0
             next_token = candidate
             step_logits = logits
@@ -51,7 +53,9 @@ class EGALBSSearch:
                 beam_tokens.append(next_token)
                 token_energies.append(token_energy)
                 local_history.append(next_token)
-                
+                if window and len(local_history) > window:
+                    del local_history[0]
+
                 model.eval([next_token])
                 search_forward_passes += 1
 

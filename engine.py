@@ -5,8 +5,11 @@ from search import should_trigger_search
 def topk_softmax(logits: np.ndarray, k: int):
     k = min(k, logits.shape[0])
     idx = np.argpartition(logits, -k)[-k:]
-    idx = idx[np.argsort(logits[idx])[::-1]]
-    shifted = logits[idx] - logits[idx][0]
+    top_logits = logits[idx]
+    order = np.argsort(top_logits)[::-1]
+    idx = idx[order]
+    top_logits = top_logits[order]
+    shifted = top_logits - top_logits[0]
     exp = np.exp(shifted)
     return idx, exp / exp.sum()
 
