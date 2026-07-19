@@ -172,3 +172,157 @@ TUNING_SUITE = {
         "expected_pattern": r"[Rr]ed:\s*[Aa]pple\s*,\s*[Bb]lue:\s*[Bb]anana\s*,\s*[Gg]reen:\s*[Oo]range"
     }
 }
+
+TESTING_SUITE = {
+    "easy_algebra_solve": {
+        "difficulty": "Easy",
+        "domain": "Math",
+        "prompt": (
+            "Solve the following equation step-by-step for x:\n"
+            "5x - 7 = 18\n\n"
+            "Show your work and output your final value in the exact format: 'x = [value]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"x\s*=\s*5\b"
+    },
+    
+    "is_palindrome": {
+        "difficulty": "Easy",
+        "domain": "Coding",
+        "prompt": (
+            "def is_palindrome(s: str) -> bool:\n"
+            "    \"\"\"Write a Python function to check if a string is a palindrome.\n"
+            "    Ignore casing and non-alphanumeric characters.\n"
+            "    assert is_palindrome(\"A man, a plan, a canal: Panama\") == True\n"
+            "    \"\"\""
+        ),
+        "verification": "unit_test",
+        "test_code": (
+            "assert is_palindrome(\"A man, a plan, a canal: Panama\") == True\n"
+            "assert is_palindrome(\"racecar\") == True\n"
+            "assert is_palindrome(\"hello\") == False\n"
+            "assert is_palindrome(\"\") == True"
+        )
+    },
+
+    "find_max": {
+        "difficulty": "Easy",
+        "domain": "Coding",
+        "prompt": (
+            "def find_max(numbers: list[int]) -> int:\n"
+            "    \"\"\"Return the maximum number in a list. If the list is empty, return None.\n"
+            "    assert find_max([1, 5, 3, 9, 2]) == 9\n"
+            "    \"\"\""
+        ),
+        "verification": "unit_test",
+        "test_code": (
+            "assert find_max([1, 5, 3, 9, 2]) == 9\n"
+            "assert find_max([-10, -5, -23]) == -5\n"
+            "assert find_max([]) == None"
+        )
+    },
+
+    "quadratic_roots": {
+        "difficulty": "Medium",
+        "domain": "Math",
+        "prompt": (
+            "Find all real roots for the quadratic equation step-by-step:\n"
+            "x^2 - 5x + 6 = 0\n\n"
+            "Show your calculation and state the final answers in the format: 'x = [values]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"x\s*=\s*(2\s*,\s*3|3\s*,\s*2|2\s+and\s+3|3\s+and\s+2)"
+    },
+
+    "gsm8k_bakery": {
+        "difficulty": "Medium",
+        "domain": "Math",
+        "prompt": (
+            "A bakery bakes 40 loaves of bread every morning. They sell 30 loaves for $4 each. "
+            "In the afternoon, they sell the remaining loaves at a 50% discount. "
+            "How much total money does the bakery make in one morning and afternoon combined? "
+            "Show your calculation step-by-step and write the final total at the very end as: 'Answer: [number]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"[Aa]nswer:\s*140"  # (30 * 4) + (10 * 2) = 120 + 20 = 140
+    },
+
+    "run_length_encoding": {
+        "difficulty": "Medium",
+        "domain": "Coding",
+        "prompt": (
+            "def encode_rle(s: str) -> str:\n"
+            "    \"\"\"Implement basic Run-Length Encoding.\n"
+            "    Convert a string with repeated characters to character followed by count.\n"
+            "    assert encode_rle(\"AAABBC\") == \"A3B2C1\"\n"
+            "    \"\"\""
+        ),
+        "verification": "unit_test",
+        "test_code": (
+            "assert encode_rle(\"AAABBC\") == \"A3B2C1\"\n"
+            "assert encode_rle(\"XYZ\") == \"X1Y1Z1\"\n"
+            "assert encode_rle(\"\") == \"\""
+        )
+    },
+    
+    "modular_arithmetic": {
+        "difficulty": "Hard",
+        "domain": "Math",
+        "prompt": (
+            "Find the unique integer solution for n such that:\n"
+            "5n ≡ 3 (mod 11) where 0 ≤ n < 11.\n\n"
+            "Show your step-by-step reasoning using modular inverses, and state your final answer clearly as: 'n = [value]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"n\s*=\s*5\b"  # 5 * 5 = 25. 25 mod 11 = 3.
+    },
+
+    "sequence_sum": {
+        "difficulty": "Hard",
+        "domain": "Math",
+        "prompt": (
+            "Compute the value of the following infinite geometric series:\n"
+            "S = 6 + 2 + 2/3 + 2/9 + ...\n\n"
+            "Show the formula used, step-by-step calculation, and state the exact final value as: 'S = [value]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"S\s*=\s*9\b"  # a = 6, r = 1/3 -> 6 / (1 - 1/3) = 6 / (2/3) = 9
+    },
+
+    "bracket_depth": {
+        "difficulty": "Hard",
+        "domain": "Coding",
+        "prompt": (
+            "def max_depth(s: str) -> int:\n"
+            "    \"\"\"Return the maximum nesting depth of parentheses in a mathematical expression.\n"
+            "    If parentheses are unbalanced or invalid, return -1.\n"
+            "    assert max_depth(\"(1+(2*3)+((8)/4))\") == 3\n"
+            "    \"\"\""
+        ),
+        "verification": "unit_test",
+        "test_code": (
+            "assert max_depth(\"(1+(2*3)+((8)/4))\") == 3\n"
+            "assert max_depth(\"()()\") == 1\n"
+            "assert max_depth(\"(()\") == -1\n"
+            "assert max_depth(\"([^])\") == -1"  # Unbalanced/mismatched testing if applicable
+        )
+    },
+
+    "longest_consecutive": {
+        "difficulty": "Hard",
+        "domain": "Coding",
+        "prompt": (
+            "def longest_consecutive(nums: list[int]) -> int:\n"
+            "    \"\"\"Given an unsorted array of integers, find the length of the longest consecutive elements sequence.\n"
+            "    Your algorithm should run in O(n) time complexity.\n"
+            "    assert longest_consecutive([100, 4, 200, 1, 3, 2]) == 4\n"
+            "    \"\"\""
+        ),
+        "verification": "unit_test",
+        "test_code": (
+            "assert longest_consecutive([100, 4, 200, 1, 3, 2]) == 4\n"
+            "assert longest_consecutive([0, 3, 7, 2, 5, 8, 4, 6, 0, 1]) == 9\n"
+            "assert longest_consecutive([]) == 0"
+        )
+    }
+}
