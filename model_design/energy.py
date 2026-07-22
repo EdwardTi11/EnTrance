@@ -4,6 +4,31 @@ def log_softmax(logits: np.ndarray) -> np.ndarray:
     shifted = logits - np.max(logits)
     return shifted - np.log(np.exp(shifted).sum())
 
+class AdaptiveThresholdTracker:
+    def __init__(self, k_multiplier: float = 2.5):
+        self.k = k_multiplier
+        self.count = 0
+        self.mean = 0.0
+        self.M2 = 0.0
+
+    def update_stats(self, energy_value: float):
+        self.count += 1
+        delta = energy_value - self.mean
+        self.mean += delta / self.count
+        delta2 = energy_value - self.mean
+        self.M2 += delta * delta2
+
+    def update_and_get_threshold(self, current_energy: float) -> float:
+        variance = self.M2 / (self.count - 1) if self.count > 1 else 0.0
+        sigma = np.sqrt(max(variance, 1e-6))
+
+        # Dynamic cutoff threshold
+        threshold = self.mean + (self.k * sigma)
+
+        self.update_stats(current_energy)
+
+        return threshold
+
 class EnergyProcessor:
     _cached_cost: np.ndarray | None = None
     _cached_vocab_size: int | None = None

@@ -1,6 +1,7 @@
 import numpy as np
 from llama_cpp import Llama
 from model_design.search import should_trigger_search
+from model_design.energy import AdaptiveThresholdTracker
 
 def topk_softmax(logits: np.ndarray, k: int):
     k = min(k, logits.shape[0])
@@ -36,8 +37,8 @@ def generate_text(
     model: Llama,
     prompt: str,
     energy_gate,
-    energy_threshold: float,
-    search_engine,
+    k_multiplier: float = 1.5,
+    search_engine = None,
     max_tokens: int | None = None,
     temperature: float = 0.8,
     top_k: int = 40,
@@ -47,6 +48,8 @@ def generate_text(
 ):
     rng = np.random.default_rng(seed)
 
+    threshold_tracker = AdaptiveThresholdTracker(k_multiplier=k_multiplier)
+
     messages = [{"role": "user", "content": prompt}]
     
     try:
@@ -55,7 +58,6 @@ def generate_text(
         formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
     tokens = model.tokenize(formatted_prompt.encode("utf-8"))
-
     remaining_budget = model.n_ctx() - len(tokens) - 4
 
     if max_tokens is None or max_tokens <= 0:
@@ -68,6 +70,9 @@ def generate_text(
     generated_tokens = []
     stop_tokens = stop_tokens or [model.token_eos()]
 
+    cooldown_steps = max(1, search_engine.lookahead_depth // 2) if search_engine else 1
+    cooldown_counter = 0
+
     while len(generated_tokens) < max_tokens:
         logits = model.scores[model.n_tokens - 1]
 
@@ -77,12 +82,24 @@ def generate_text(
 
         token_energy = energy_gate.energy(logits, generated_tokens, token_id=selected_id)
 
-        if should_trigger_search(token_energy, energy_threshold):
+        # Compute dynamic threshold based on running statistics (mu + k * sigma)
+        current_threshold = threshold_tracker.update_and_get_threshold(token_energy)
+
+        search_allowed = cooldown_counter == 0 and search_engine is not None
+
+        if not search_allowed and cooldown_counter > 0:
+            cooldown_counter -= 1
+
+        if search_allowed and should_trigger_search(token_energy, current_threshold):
             token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
-            print(f"\n🛑 [ENERGY SPIKE DETECTED] Token: {token_str!r} | Energy: {token_energy:.4f} > {energy_threshold}")
+            print(
+                f"\n🛑 [ADAPTIVE SPIKE DETECTED] Token: {token_str!r} | "
+                f"Energy: {token_energy:.4f} > Threshold (μ + {k_multiplier}σ = {current_threshold:.4f})"
+            )
             print("Pausing linear decoding, running EGALBS search...")
 
             search_result = search_engine.run(model, energy_gate, logits, generated_tokens)
+            cooldown_counter = cooldown_steps
             start_position = model.n_tokens
             winning_tokens = search_result["winning_tokens"]
 
@@ -97,6 +114,7 @@ def generate_text(
                     "selected_token_str": None,
                     "selected_token_prob": None,
                     "energy": search_result["winning_token_energies"][i],
+                    "threshold_used": current_threshold,
                     "source": "search",
                     "search_forward_passes": search_result["search_forward_passes"] if i == 0 else 0
                 }
@@ -106,10 +124,7 @@ def generate_text(
                 if winning_id in stop_tokens or len(generated_tokens) >= max_tokens:
                     break
                 
-            print(
-                f"Resuming linear decoding after {len(winning_tokens)} "
-                f"search-injected tokens (winning energy: {search_result['winning_energy']:.4f})\n"
-            )
+            print(f"Resuming linear decoding after {len(winning_tokens)} search-injected tokens")
 
             if generated_tokens and generated_tokens[-1] in stop_tokens:
                 break
@@ -122,6 +137,7 @@ def generate_text(
             "selected_token_str": None,
             "selected_token_prob": selected_prob,
             "energy": token_energy,
+            "threshold_used": current_threshold,
             "source": "linear"
         }
         trace_data.append(entry)

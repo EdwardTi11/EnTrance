@@ -20,36 +20,6 @@ TUNING_SUITE = {
         )
     },
 
-    "string_to_list": {
-        "difficulty": "Easy",
-        "domain": "Coding (MBPP/310)",
-        "prompt": (
-            "def string_to_list(string: str) -> list[str]:\n"
-            "    \"\"\"Write a Python function to convert a given string to a list of characters.\n"
-            "    assert string_to_list(\"geeks\") == ['g', 'e', 'e', 'k', 's']\n"
-            "    \"\"\""
-        ),
-        "verification": "unit_test",
-        "test_code": (
-            "assert string_to_list(\"geeks\") == ['g', 'e', 'e', 'k', 's']\n"
-            "assert string_to_list(\"abc\") == ['a', 'b', 'c']\n"
-            "assert string_to_list(\"\") == []"
-        )
-    },
-
-    "easy_linear_algebra": {
-        "difficulty": "Easy",
-        "domain": "Math (DeepMind)",
-        "prompt": (
-            "Solve this system of equations step-by-step:\n"
-            "1) 2x + 3y = 0\n"
-            "2) 4x - y = 14\n\n"
-            "Show your steps clearly and output your final values in the exact format: 'x = [value], y = [value]'."
-        ),
-        "verification": "regex",
-        "expected_pattern": r"x\s*=\s*3\s*,\s*y\s*=\s*-2"
-    },
-
     "correct_bracketing": {
         "difficulty": "Medium",
         "domain": "Coding (HumanEval/56)",
@@ -94,32 +64,6 @@ TUNING_SUITE = {
         )
     },
 
-    "radical_equations": {
-        "difficulty": "Medium",
-        "domain": "Math (DeepMind)",
-        "prompt": (
-            "Solve for all real values of x:\n"
-            "sqrt(3x + 24) - sqrt(x) = 4\n\n"
-            "Show each step of your calculation and state the final answers in the format: 'x = [values]'."
-        ),
-        "verification": "regex_or_exact",
-        "expected_pattern": r"x\s*=\s*(1\s*,\s*9|9\s*,\s*1|1\s+and\s+9|9\s+and\s+1)"
-    },
-
-    "gsm8k_dog_food": {
-        "difficulty": "Medium",
-        "domain": "Math (GSM8K)",
-        "prompt": (
-            "Wengie has 3 dogs. Each dog eats 2 cups of dog food twice a day. "
-            "A bag of dog food contains 84 cups of food. Wengie wants to calculate "
-            "how many days 10 bags of dog food will last. Show your calculation "
-            "step-by-step and write the final number of days at the very end of "
-            "your response as: 'Answer: [number]'."
-        ),
-        "verification": "regex",
-        "expected_pattern": r"[Aa]nswer:\s*70"  # Correct calculation: 3*2*2 = 12 cups/day. 10 bags * 84 cups = 840 cups. 840 / 12 = 70 days.
-    },
-
     "sk_primes": {
         "difficulty": "Hard",
         "domain": "Coding (HumanEval/94)",
@@ -143,17 +87,71 @@ TUNING_SUITE = {
         )
     },
 
+    "vietas_sum_squares": {
+        "difficulty": "Medium",
+        "domain": "Math (High School Algebra / AMC 10)",
+        "prompt": (
+            "Let r and s be the real roots of the quadratic equation x^2 - 7x + 11 = 0.\n"
+            "Find the exact value of r^2 + s^2 without solving for r and s individually.\n\n"
+            "Show your step-by-step derivation using Vieta's formulas and write your final answer as: 'Answer: [value]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"[Aa]nswer:\s*27\b"
+    },
+
+    "logarithmic_equations": {
+        "difficulty": "Medium",
+        "domain": "Math (High School Precalculus)",
+        "prompt": (
+            "Solve the following equation for all real values of x:\n"
+            "log2(x) + log2(x - 6) = 4\n\n"
+            "Show each step of your solution, verify domain constraints, and state your final answer as: 'x = [value]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"x\s*=\s*8\b"
+    },
+
     "aime_base_conversion": {
         "difficulty": "Hard",
-        "domain": "Math (2020 AIME I Problem 3 - Corrected)",
+        "domain": "Math (2020 AIME I)",
         "prompt": (
             "A positive integer N has base-eleven representation abc (where a, b, and c represent "
             "individual digits) and base-eight representation 1bca, where a, b, and c represent "
-            "(not necessarily distinct) digits. What is the value of N expressed in base ten? "
-            "Show your work step-by-step and state your final integer answer clearly."
+            "digits. What is the value of N expressed in base ten? "
+            "Show your work step-by-step and state your final integer answer clearly as: 'Answer: [number]'."
         ),
         "verification": "regex",
-        "expected_pattern": r"\b621\b"  # Verifies that 621 is the extracted integer.
+        "expected_pattern": r"[Aa]nswer:\s*621\b"
+    },
+
+    "knights_and_knaves": {
+        "difficulty": "Medium",
+        "domain": "Logic/Truth Deduction",
+        "prompt": (
+            "You meet two inhabitants of an island where Knights always tell the truth and Knaves always lie.\n"
+            "Person A says: 'At least one of us is a Knave.'\n"
+            "Person B says nothing.\n\n"
+            "Determine the identity of Person A and Person B. Show your logical reasoning step-by-step "
+            "and output the final answer as: 'A is a [Knight/Knave], B is a [Knight/Knave]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"A\s+is\s+a\s+Knight\s*,\s*B\s+is\s+a\s+Knave"
+    },
+
+    "positional_ordering": {
+        "difficulty": "Medium",
+        "domain": "Logic/Spatial Reasoning",
+        "prompt": (
+            "Five runners (Alice, Bob, Charlie, David, Eve) finish a race with no ties:\n"
+            "1. Alice finishes somewhere ahead of Bob.\n"
+            "2. Charlie finishes directly behind Eve.\n"
+            "3. David finishes 1st.\n"
+            "4. Bob finishes in 4th place.\n\n"
+            "Determine the complete 1st through 5th finishing order. Work through the clues step-by-step "
+            "and write the final order as: '1st: [name], 2nd: [name], 3rd: [name], 4th: [name], 5th: [name]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"1st:\s*David\s*,\s*2nd:\s*Alice\s*,\s*3rd:\s*Eve\s*,\s*4th:\s*Bob\s*,\s*5th:\s*Charlie"
     },
 
     "zebra_logic_puzzle": {
@@ -170,159 +168,5 @@ TUNING_SUITE = {
         ),
         "verification": "regex",
         "expected_pattern": r"[Rr]ed:\s*[Aa]pple\s*,\s*[Bb]lue:\s*[Bb]anana\s*,\s*[Gg]reen:\s*[Oo]range"
-    }
-}
-
-TESTING_SUITE = {
-    "easy_algebra_solve": {
-        "difficulty": "Easy",
-        "domain": "Math",
-        "prompt": (
-            "Solve the following equation step-by-step for x:\n"
-            "5x - 7 = 18\n\n"
-            "Show your work and output your final value in the exact format: 'x = [value]'."
-        ),
-        "verification": "regex",
-        "expected_pattern": r"x\s*=\s*5\b"
-    },
-    
-    "is_palindrome": {
-        "difficulty": "Easy",
-        "domain": "Coding",
-        "prompt": (
-            "def is_palindrome(s: str) -> bool:\n"
-            "    \"\"\"Write a Python function to check if a string is a palindrome.\n"
-            "    Ignore casing and non-alphanumeric characters.\n"
-            "    assert is_palindrome(\"A man, a plan, a canal: Panama\") == True\n"
-            "    \"\"\""
-        ),
-        "verification": "unit_test",
-        "test_code": (
-            "assert is_palindrome(\"A man, a plan, a canal: Panama\") == True\n"
-            "assert is_palindrome(\"racecar\") == True\n"
-            "assert is_palindrome(\"hello\") == False\n"
-            "assert is_palindrome(\"\") == True"
-        )
-    },
-
-    "find_max": {
-        "difficulty": "Easy",
-        "domain": "Coding",
-        "prompt": (
-            "def find_max(numbers: list[int]) -> int:\n"
-            "    \"\"\"Return the maximum number in a list. If the list is empty, return None.\n"
-            "    assert find_max([1, 5, 3, 9, 2]) == 9\n"
-            "    \"\"\""
-        ),
-        "verification": "unit_test",
-        "test_code": (
-            "assert find_max([1, 5, 3, 9, 2]) == 9\n"
-            "assert find_max([-10, -5, -23]) == -5\n"
-            "assert find_max([]) == None"
-        )
-    },
-
-    "quadratic_roots": {
-        "difficulty": "Medium",
-        "domain": "Math",
-        "prompt": (
-            "Find all real roots for the quadratic equation step-by-step:\n"
-            "x^2 - 5x + 6 = 0\n\n"
-            "Show your calculation and state the final answers in the format: 'x = [values]'."
-        ),
-        "verification": "regex",
-        "expected_pattern": r"x\s*=\s*(2\s*,\s*3|3\s*,\s*2|2\s+and\s+3|3\s+and\s+2)"
-    },
-
-    "gsm8k_bakery": {
-        "difficulty": "Medium",
-        "domain": "Math",
-        "prompt": (
-            "A bakery bakes 40 loaves of bread every morning. They sell 30 loaves for $4 each. "
-            "In the afternoon, they sell the remaining loaves at a 50% discount. "
-            "How much total money does the bakery make in one morning and afternoon combined? "
-            "Show your calculation step-by-step and write the final total at the very end as: 'Answer: [number]'."
-        ),
-        "verification": "regex",
-        "expected_pattern": r"[Aa]nswer:\s*140"  # (30 * 4) + (10 * 2) = 120 + 20 = 140
-    },
-
-    "run_length_encoding": {
-        "difficulty": "Medium",
-        "domain": "Coding",
-        "prompt": (
-            "def encode_rle(s: str) -> str:\n"
-            "    \"\"\"Implement basic Run-Length Encoding.\n"
-            "    Convert a string with repeated characters to character followed by count.\n"
-            "    assert encode_rle(\"AAABBC\") == \"A3B2C1\"\n"
-            "    \"\"\""
-        ),
-        "verification": "unit_test",
-        "test_code": (
-            "assert encode_rle(\"AAABBC\") == \"A3B2C1\"\n"
-            "assert encode_rle(\"XYZ\") == \"X1Y1Z1\"\n"
-            "assert encode_rle(\"\") == \"\""
-        )
-    },
-    
-    "modular_arithmetic": {
-        "difficulty": "Hard",
-        "domain": "Math",
-        "prompt": (
-            "Find the unique integer solution for n such that:\n"
-            "5n ≡ 3 (mod 11) where 0 ≤ n < 11.\n\n"
-            "Show your step-by-step reasoning using modular inverses, and state your final answer clearly as: 'n = [value]'."
-        ),
-        "verification": "regex",
-        "expected_pattern": r"n\s*=\s*5\b"  # 5 * 5 = 25. 25 mod 11 = 3.
-    },
-
-    "sequence_sum": {
-        "difficulty": "Hard",
-        "domain": "Math",
-        "prompt": (
-            "Compute the value of the following infinite geometric series:\n"
-            "S = 6 + 2 + 2/3 + 2/9 + ...\n\n"
-            "Show the formula used, step-by-step calculation, and state the exact final value as: 'S = [value]'."
-        ),
-        "verification": "regex",
-        "expected_pattern": r"S\s*=\s*9\b"  # a = 6, r = 1/3 -> 6 / (1 - 1/3) = 6 / (2/3) = 9
-    },
-
-    "bracket_depth": {
-        "difficulty": "Hard",
-        "domain": "Coding",
-        "prompt": (
-            "def max_depth(s: str) -> int:\n"
-            "    \"\"\"Return the maximum nesting depth of parentheses in a mathematical expression.\n"
-            "    If parentheses are unbalanced or invalid, return -1.\n"
-            "    assert max_depth(\"(1+(2*3)+((8)/4))\") == 3\n"
-            "    \"\"\""
-        ),
-        "verification": "unit_test",
-        "test_code": (
-            "assert max_depth(\"(1+(2*3)+((8)/4))\") == 3\n"
-            "assert max_depth(\"()()\") == 1\n"
-            "assert max_depth(\"(()\") == -1\n"
-            "assert max_depth(\"([^])\") == -1"  # Unbalanced/mismatched testing if applicable
-        )
-    },
-
-    "longest_consecutive": {
-        "difficulty": "Hard",
-        "domain": "Coding",
-        "prompt": (
-            "def longest_consecutive(nums: list[int]) -> int:\n"
-            "    \"\"\"Given an unsorted array of integers, find the length of the longest consecutive elements sequence.\n"
-            "    Your algorithm should run in O(n) time complexity.\n"
-            "    assert longest_consecutive([100, 4, 200, 1, 3, 2]) == 4\n"
-            "    \"\"\""
-        ),
-        "verification": "unit_test",
-        "test_code": (
-            "assert longest_consecutive([100, 4, 200, 1, 3, 2]) == 4\n"
-            "assert longest_consecutive([0, 3, 7, 2, 5, 8, 4, 6, 0, 1]) == 9\n"
-            "assert longest_consecutive([]) == 0"
-        )
     }
 }

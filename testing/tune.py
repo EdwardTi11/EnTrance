@@ -5,7 +5,7 @@ from llama_cpp import Llama
 from model_design.engine import generate_text
 from model_design.energy import EnergyProcessor
 from model_design.search import EGALBSSearch
-from prompt_config import TUNING_SUITE
+from .prompt_config import TUNING_SUITE
 
 mm_module = optunahub.load_module("pruners/multi_metric_pruner")
 MultiMetricPruner = mm_module.MultiMetricPruner
@@ -27,7 +27,7 @@ def objective(trial):
     alpha = trial.suggest_float("alpha", 0.5, 2.5)
     beta = trial.suggest_float("beta", 0.0, 2.0)
     gamma = trial.suggest_float("gamma", 0.1, 1.5)
-    energy_threshold = trial.suggest_float("energy_threshold", 2.5, 6.0)
+    k_multiplier = trial.suggest_float("k_multiplier", 1.5, 3.5)
     beam_width = trial.suggest_int("beam_width", 2, 6)
     lookahead_depth = trial.suggest_int("lookahead_depth", 4, 12)
     
@@ -43,12 +43,12 @@ def objective(trial):
         difficulty = task.get("difficulty", "Medium")
         if difficulty == "Easy":
             max_tokens_budget = 128
-        elif difficulty == "Medium":
+        elif difficulty in ("Medium"):
             max_tokens_budget = 256
-        elif difficulty == "Hard":
+        elif difficulty in ("Hard"):
             max_tokens_budget = 512
         else:
-            max_tokens_budget = 256 # Fallback safety net
+            max_tokens_budget = 256  # Fallback safety net
         
         model.reset()
         
@@ -56,14 +56,14 @@ def objective(trial):
             model=model,
             prompt=prompt_text,
             energy_gate=energy_gate,
-            energy_threshold=energy_threshold,
+            k_multiplier=k_multiplier,
             seed=42,
             search_engine=search_engine,
             max_tokens=max_tokens_budget
         )
         
-        linear_tokens = sum(1 for step in trace if step.get("source") == "linear")
-        search_passes = sum(step.get("search_forward_passes", 0) for step in trace if "search_forward_passes" in step)
+        linear_tokens = sum(1 for entry in trace if entry.get("source") == "linear")
+        search_passes = sum(entry.get("search_forward_passes", 0) for entry in trace if "search_forward_passes" in entry)
         
         total_forward_passes += (linear_tokens + search_passes)
         
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     print(f"tuned_alpha = {best['alpha']:.4f}")
     print(f"tuned_beta = {best['beta']:.4f}")
     print(f"tuned_gamma = {best['gamma']:.4f}")
+    print(f"tuned_k_multiplier = {best['k_multiplier']:.4f}")
     print(f"tuned_beam_width = {best['beam_width']}")
     print(f"tuned_lookahead_depth = {best['lookahead_depth']}")
-    print(f"ENERGY_THRESHOLD = {best['energy_threshold']:.4f}")
     print("="*50 + "\n")
