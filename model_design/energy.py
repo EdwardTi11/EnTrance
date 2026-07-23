@@ -18,7 +18,12 @@ class AdaptiveThresholdTracker:
         delta2 = energy_value - self.mean
         self.M2 += delta * delta2
 
-    def update_and_get_threshold(self, current_energy: float) -> float:
+    def update_and_get_threshold(self, current_energy: float, warmup_steps: int = 10) -> float:
+        self.update_stats(current_energy)
+
+        if self.count < warmup_steps:
+            return 5.2913
+        
         variance = self.M2 / (self.count - 1) if self.count > 1 else 0.0
         sigma = np.sqrt(max(variance, 1e-6))
 
