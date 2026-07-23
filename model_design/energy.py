@@ -30,8 +30,6 @@ class AdaptiveThresholdTracker:
         # Dynamic cutoff threshold
         threshold = self.mean + (self.k * sigma)
 
-        self.update_stats(current_energy)
-
         return threshold
 
 class EnergyProcessor:
