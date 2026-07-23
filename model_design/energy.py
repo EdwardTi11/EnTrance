@@ -33,9 +33,6 @@ class AdaptiveThresholdTracker:
         return threshold
 
 class EnergyProcessor:
-    _cached_cost: np.ndarray | None = None
-    _cached_vocab_size: int | None = None
-
     def __init__(
         self,
         model,
@@ -58,16 +55,8 @@ class EnergyProcessor:
         )
 
         if beta != 0.0:
-            if (
-                EnergyProcessor._cached_cost is not None 
-                and EnergyProcessor._cached_vocab_size == self.vocab_size
-            ):
-                self.cost = EnergyProcessor._cached_cost
-            else:
-                build_cost = cost_fn or self.default_cost
-                self.cost = build_cost(self.vocab_size, model)
-                EnergyProcessor._cached_cost = self.cost
-                EnergyProcessor._cached_vocab_size = self.vocab_size
+            build_cost = cost_fn or self.default_cost
+            self.cost = build_cost(self.vocab_size, model)
         else:
             self.cost = np.zeros(self.vocab_size, dtype=np.float32)
 

@@ -20,6 +20,22 @@ TUNING_SUITE = {
         )
     },
 
+    "min_key_value": {
+        "difficulty": "Medium",
+        "domain": "Coding (MBPP/751)",
+        "prompt": (
+            "def min_key_value(dictionary: dict) -> tuple:\n"
+            "    \"\"\"Write a Python function to find the key of the minimum value in a dictionary.\n"
+            "    assert min_key_value({'gfg': 1, 'is': 2, 'best': 3}) == ('gfg', 1)\n"
+            "    \"\"\""
+        ),
+        "verification": "unit_test",
+        "test_code": (
+            "assert min_key_value({'gfg': 1, 'is': 2, 'best': 3}) == ('gfg', 1)\n"
+            "assert min_key_value({'a': 10, 'b': 5, 'c': 20}) == ('b', 5)"
+        )
+    },
+
     "correct_bracketing": {
         "difficulty": "Medium",
         "domain": "Coding (HumanEval/56)",
@@ -48,45 +64,6 @@ TUNING_SUITE = {
         )
     },
 
-    "min_key_value": {
-        "difficulty": "Medium",
-        "domain": "Coding (MBPP/751)",
-        "prompt": (
-            "def min_key_value(dictionary: dict) -> tuple:\n"
-            "    \"\"\"Write a Python function to find the key of the minimum value in a dictionary.\n"
-            "    assert min_key_value({'gfg': 1, 'is': 2, 'best': 3}) == ('gfg', 1)\n"
-            "    \"\"\""
-        ),
-        "verification": "unit_test",
-        "test_code": (
-            "assert min_key_value({'gfg': 1, 'is': 2, 'best': 3}) == ('gfg', 1)\n"
-            "assert min_key_value({'a': 10, 'b': 5, 'c': 20}) == ('b', 5)"
-        )
-    },
-
-    "sk_primes": {
-        "difficulty": "Hard",
-        "domain": "Coding (HumanEval/94)",
-        "prompt": (
-            "def sk_primes(lst: list[int]) -> int:\n"
-            "    \"\"\"Find the largest prime value in the list, and return the sum of its digits.\n"
-            "    >>> sk_primes([0,3,2,1,3,5,7,4,5,5,5,2,181,32,4,32,3,2,32,324,4,3])\n"
-            "    10\n"
-            "    >>> sk_primes([1,0,1,8,2,19])\n"
-            "    10\n"
-            "    >>> sk_primes([3000, 3007, 3002, 3001, 2002])\n"
-            "    4\n"
-            "    \"\"\""
-        ),
-        "verification": "unit_test",
-        "test_code": (
-            "assert sk_primes([0,3,2,1,3,5,7,4,5,5,5,2,181,32,4,32,3,2,32,324,4,3]) == 10\n"
-            "assert sk_primes([1,0,1,8,2,19]) == 10\n"
-            "assert sk_primes([3000, 3007, 3002, 3001, 2002]) == 4\n"
-            "assert sk_primes([3, 5, 7]) == 7"
-        )
-    },
-
     "vietas_sum_squares": {
         "difficulty": "Medium",
         "domain": "Math (High School Algebra / AMC 10)",
@@ -109,19 +86,6 @@ TUNING_SUITE = {
         ),
         "verification": "regex",
         "expected_pattern": r"x\s*=\s*8\b"
-    },
-
-    "aime_base_conversion": {
-        "difficulty": "Hard",
-        "domain": "Math (2020 AIME I)",
-        "prompt": (
-            "A positive integer N has base-eleven representation abc (where a, b, and c represent "
-            "individual digits) and base-eight representation 1bca, where a, b, and c represent "
-            "digits. What is the value of N expressed in base ten? "
-            "Show your work step-by-step and state your final integer answer clearly as: 'Answer: [number]'."
-        ),
-        "verification": "regex",
-        "expected_pattern": r"[Aa]nswer:\s*621\b"
     },
 
     "knights_and_knaves": {
@@ -152,6 +116,42 @@ TUNING_SUITE = {
         ),
         "verification": "regex",
         "expected_pattern": r"1st:\s*David\s*,\s*2nd:\s*Alice\s*,\s*3rd:\s*Eve\s*,\s*4th:\s*Bob\s*,\s*5th:\s*Charlie"
+    },
+
+    "sk_primes": {
+        "difficulty": "Hard",
+        "domain": "Coding (HumanEval/94)",
+        "prompt": (
+            "def sk_primes(lst: list[int]) -> int:\n"
+            "    \"\"\"Find the largest prime value in the list, and return the sum of its digits.\n"
+            "    >>> sk_primes([0,3,2,1,3,5,7,4,5,5,5,2,181,32,4,32,3,2,32,324,4,3])\n"
+            "    10\n"
+            "    >>> sk_primes([1,0,1,8,2,19])\n"
+            "    10\n"
+            "    >>> sk_primes([3000, 3007, 3002, 3001, 2002])\n"
+            "    4\n"
+            "    \"\"\""
+        ),
+        "verification": "unit_test",
+        "test_code": (
+            "assert sk_primes([0,3,2,1,3,5,7,4,5,5,5,2,181,32,4,32,3,2,32,324,4,3]) == 10\n"
+            "assert sk_primes([1,0,1,8,2,19]) == 10\n"
+            "assert sk_primes([3000, 3007, 3002, 3001, 2002]) == 4\n"
+            "assert sk_primes([3, 5, 7]) == 7"
+        )
+    },
+
+    "aime_base_conversion": {
+        "difficulty": "Hard",
+        "domain": "Math (2020 AIME I)",
+        "prompt": (
+            "A positive integer N has base-eleven representation abc (where a, b, and c represent "
+            "individual digits) and base-eight representation 1bca, where a, b, and c represent "
+            "digits. What is the value of N expressed in base ten? "
+            "Show your work step-by-step and state your final integer answer clearly as: 'Answer: [number]'."
+        ),
+        "verification": "regex",
+        "expected_pattern": r"[Aa]nswer:\s*621\b"
     },
 
     "zebra_logic_puzzle": {
