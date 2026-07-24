@@ -14,7 +14,7 @@ model = Llama(
 )
 
 energy_gate = EnergyProcessor(model=model, alpha=2.4260, beta=1.2673, gamma=1.4835)
-search_engine = EGALBSSearch(beam_width=4, lookahead_depth=9)
+search_engine = EGALBSSearch(beam_width=4, lookahead_depth=9, leader_margin=2.0)
 
 text, trace = generate_text(
     model=model,

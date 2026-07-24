@@ -30,9 +30,10 @@ def objective(trial):
     k_multiplier = trial.suggest_float("k_multiplier", 1.5, 3.5)
     beam_width = trial.suggest_int("beam_width", 2, 6)
     lookahead_depth = trial.suggest_int("lookahead_depth", 4, 12)
+    search_margin = trial.suggest_float("search_margin", 0.5, 3)
     
     energy_gate = EnergyProcessor(model=model, alpha=alpha, beta=beta, gamma=gamma)
-    search_engine = EGALBSSearch(beam_width=beam_width, lookahead_depth=lookahead_depth)
+    search_engine = EGALBSSearch(beam_width=beam_width, lookahead_depth=lookahead_depth, leader_margin=search_margin)
 
     total_errors = 0
     total_forward_passes = 0
