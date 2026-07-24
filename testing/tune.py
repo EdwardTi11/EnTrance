@@ -114,7 +114,7 @@ if __name__ == "__main__":
         directions=["minimize", "minimize"],
         pruner=mo_pruner
     )
-    study.optimize(objective, n_trials=40)
+    study.optimize(objective, n_trials=100)
 
     best_trials = study.best_trials
     max_errors = max(t.values[0] for t in best_trials) or 1
