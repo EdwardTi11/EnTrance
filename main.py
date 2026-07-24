@@ -26,3 +26,4 @@ text, trace = generate_text(
 )
 
 print(text + "\n")
+print(trace)

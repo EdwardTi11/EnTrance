@@ -125,4 +125,5 @@ if __name__ == "__main__":
     print(f"tuned_k_multiplier = {best['k_multiplier']:.4f}")
     print(f"tuned_beam_width = {best['beam_width']}")
     print(f"tuned_lookahead_depth = {best['lookahead_depth']}")
+    print(f"tuned_search_margin = {best['search_margin']:.4f}")
     print("="*50 + "\n")
