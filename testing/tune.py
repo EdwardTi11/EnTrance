@@ -25,18 +25,18 @@ def objective(trial):
     mmt = MultiMetricPrunerTrial(trial)
     
     alpha = trial.suggest_float("alpha", 0.5, 2.5)
-    beta = trial.suggest_float("beta", 0.0, 2.0)
     gamma = trial.suggest_float("gamma", 0.1, 1.5)
     k_multiplier = trial.suggest_float("k_multiplier", 1.5, 3.5)
     beam_width = trial.suggest_int("beam_width", 2, 6)
     lookahead_depth = trial.suggest_int("lookahead_depth", 4, 12)
     search_margin = trial.suggest_float("search_margin", 0.5, 3)
     
-    energy_gate = EnergyProcessor(model=model, alpha=alpha, beta=beta, gamma=gamma)
+    energy_gate = EnergyProcessor(model=model, alpha=alpha, gamma=gamma)
     search_engine = EGALBSSearch(beam_width=beam_width, lookahead_depth=lookahead_depth, leader_margin=search_margin)
 
     total_errors = 0
     total_forward_passes = 0
+    task_results = []
     
     for step, (task_name, task) in enumerate(TUNING_SUITE.items()):
         prompt_text = task["prompt"]
@@ -63,10 +63,16 @@ def objective(trial):
             max_tokens=max_tokens_budget
         )
         
-        linear_tokens = sum(1 for entry in trace if entry.get("source") == "linear")
-        search_passes = sum(entry.get("search_forward_passes", 0) for entry in trace if "search_forward_passes" in entry)
-        
-        total_forward_passes += (linear_tokens + search_passes)
+        linear_tokens = sum(
+            1 for entry in trace
+            if entry.get("source") == "linear"
+        )
+        search_passes = sum(
+            entry.get("search_forward_passes", 0)
+            for entry in trace
+            if "search_forward_passes" in entry
+        )
+        forward_passes += (linear_tokens + search_passes)
         
         is_correct = False
         if task["verification"] == "regex":
@@ -82,11 +88,18 @@ def objective(trial):
 
         if not is_correct:
             total_errors += 1
+        task_results.append({
+            "task": task_name,
+            "difficulty": difficulty,
+            "correct": is_correct,
+            "forward_passes": forward_passes
+        })
             
         mmt.report({"errors": total_errors, "passes": total_forward_passes}, step=step)
         if mmt.should_prune():
             raise optuna.TrialPruned()
 
+    trial.set_user_attr("task_results", task_results)
     return total_errors, total_forward_passes
 
 if __name__ == "__main__":
@@ -120,10 +133,32 @@ if __name__ == "__main__":
     print(f"  Errors: {golden_trial.values[0]} | Total Forward Passes: {golden_trial.values[1]}")
     print("="*50)
     print(f"tuned_alpha = {best['alpha']:.4f}")
-    print(f"tuned_beta = {best['beta']:.4f}")
     print(f"tuned_gamma = {best['gamma']:.4f}")
     print(f"tuned_k_multiplier = {best['k_multiplier']:.4f}")
     print(f"tuned_beam_width = {best['beam_width']}")
     print(f"tuned_lookahead_depth = {best['lookahead_depth']}")
     print(f"tuned_search_margin = {best['search_margin']:.4f}")
     print("="*50 + "\n")
+
+    results = golden_trial.user_attrs["task_results"]
+    correct_count = sum(r["correct"] for r in results)
+
+    print("\nBenchmark Breakdown")
+    print("=" * 60)
+
+    for result in results:
+        status = "✓" if result["correct"] else "✗"
+
+        print(
+            f"{status} {result['task']} "
+            f"({result['difficulty']})"
+        )
+        print(f"    Forward Passes: {result['forward_passes']}")
+
+    print("=" * 60)
+    print(f"Accuracy: {correct_count}/{len(results)} "
+        f"({100 * correct_count / len(results):.2f}%)")
+    print(f"Total Forward Passes: {golden_trial.values[1]}")
+    print(f"Average Forward Passes: "
+        f"{golden_trial.values[1] / len(results):.1f}")
+    print("=" * 60)
