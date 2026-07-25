@@ -13,14 +13,14 @@ model = Llama(
     logits_all=True
 )
 
-energy_gate = EnergyProcessor(model=model, alpha=2.4260, beta=1.2673, gamma=1.4835)
+energy_gate = EnergyProcessor(model=model, alpha=1.2727, beta=0, gamma=0.2134)
 search_engine = EGALBSSearch(beam_width=4, lookahead_depth=9)
 
 text, trace = generate_text(
     model=model,
     prompt=input("Enter a prompt: "),
     energy_gate=energy_gate,
-    k_multiplier=1.9707,
+    k_multiplier=2.9371,
     search_engine=search_engine,
     seed=0,
 )

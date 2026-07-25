@@ -27,11 +27,9 @@ def objective(trial):
     alpha = trial.suggest_float("alpha", 0.5, 2.5)
     gamma = trial.suggest_float("gamma", 0.1, 1.5)
     k_multiplier = trial.suggest_float("k_multiplier", 1.5, 3.5)
-    beam_width = trial.suggest_int("beam_width", 2, 6)
-    lookahead_depth = trial.suggest_int("lookahead_depth", 4, 12)
     
     energy_gate = EnergyProcessor(model=model, alpha=alpha, gamma=gamma)
-    search_engine = EGALBSSearch(beam_width=beam_width, lookahead_depth=lookahead_depth)
+    search_engine = EGALBSSearch(beam_width=4, lookahead_depth=9)
 
     total_errors = 0
     total_forward_passes = 0
@@ -128,8 +126,6 @@ if __name__ == "__main__":
     print(f"tuned_alpha = {best['alpha']:.4f}")
     print(f"tuned_gamma = {best['gamma']:.4f}")
     print(f"tuned_k_multiplier = {best['k_multiplier']:.4f}")
-    print(f"tuned_beam_width = {best['beam_width']}")
-    print(f"tuned_lookahead_depth = {best['lookahead_depth']}")
     print("="*50 + "\n")
 
     results = golden_trial.user_attrs["task_results"]
