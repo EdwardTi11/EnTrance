@@ -62,16 +62,10 @@ def objective(trial):
             max_tokens=max_tokens_budget
         )
         
-        linear_tokens = sum(
-            1 for entry in trace
-            if entry.get("source") == "linear"
-        )
-        search_passes = sum(
-            entry.get("search_forward_passes", 0)
-            for entry in trace
-            if "search_forward_passes" in entry
-        )
-        forward_passes += (linear_tokens + search_passes)
+        linear_tokens = sum(1 for entry in trace if entry.get("source") == "linear")
+        search_passes = sum(entry.get("search_forward_passes", 0) for entry in trace if "search_forward_passes" in entry)
+
+        total_forward_passes += (linear_tokens + search_passes)
         
         is_correct = False
         if task["verification"] == "regex":
@@ -91,7 +85,7 @@ def objective(trial):
             "task": task_name,
             "difficulty": difficulty,
             "correct": is_correct,
-            "forward_passes": forward_passes
+            "forward_passes": total_forward_passes
         })
             
         mmt.report({"errors": total_errors, "passes": total_forward_passes}, step=step)
