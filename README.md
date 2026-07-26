@@ -130,6 +130,22 @@ The algorithm performs a bounded beam search, evaluates each candidate using cum
 
 ---
 
+## Energy Function
+
+``` text
+E(x) = α · P(x) + γ · R(x)
+```
+
+Where:
+
+- **E(x)** — Total energy score for token *x*
+- **P(x)** — Token surprise (predictive uncertainty component)
+- **R(x)** — Repetition penalty component
+- **α** (`alpha`) — Weight controlling the contribution of token surprise
+- **γ** (`gamma`) — Weight controlling the contribution of repetition penalty
+
+---
+
 ## Algorithm
 
 ```text
