@@ -133,7 +133,7 @@ The algorithm performs a bounded beam search, evaluates each candidate using cum
 ## Energy Function
 
 ``` text
-E(x) = α · P(x) + γ · R(x)
+E(x) = -α · P(x) + γ · R(x)
 ```
 
 Where:
