@@ -21,6 +21,17 @@ model = Llama(
     logits_all=True
 )
 
+def clean_code_output(text: str) -> str:
+    match = re.search(r"```(?:python)?\s*(.*?)```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    match = re.search(r"^\s*def\s+\w+\s*\(", text, re.MULTILINE)
+    if match:
+        return text[match.start():].strip()
+
+    return text.strip()
+
 def objective(trial):
     mmt = MultiMetricPrunerTrial(trial)
     
@@ -71,10 +82,20 @@ def objective(trial):
                 is_correct = True
         elif task["verification"] == "unit_test":
             try:
-                local_vars = {}
-                exec(generated_text + "\n" + task["test_code"], {}, local_vars)
+                namespace = {}
+
+                clean_text = clean_code_output(generated_text)
+
+                if not clean_text.lstrip().startswith("def "):
+                    clean_text = prompt_text + "\n" + clean_text
+
+                exec(clean_text, namespace)
+                exec(task["test_code"], namespace)
+
                 is_correct = True
-            except Exception:
+
+            except Exception as e:
+                print(f"{type(e).__name__}: {e}")
                 is_correct = False
 
         if not is_correct:
@@ -106,7 +127,7 @@ if __name__ == "__main__":
         directions=["minimize", "minimize"],
         pruner=mo_pruner
     )
-    study.optimize(objective, n_trials=100)
+    study.optimize(objective, n_trials=10)
 
     best_trials = study.best_trials
     max_errors = max(t.values[0] for t in best_trials) or 1
