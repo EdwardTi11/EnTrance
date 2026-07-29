@@ -14,12 +14,7 @@ def topk_softmax(logits: np.ndarray, k: int):
     exp = np.exp(shifted)
     return idx, exp / exp.sum()
 
-def sample_token(logits: np.ndarray, temperature: float, top_k: int, top_p: float,
-                  rng: np.random.Generator, logit_processors=None, prev_tokens=None):
-    if logit_processors:
-        for proc in logit_processors:
-            logits = proc(logits, prev_tokens or [])
-
+def sample_token(logits: np.ndarray, temperature: float, top_k: int, top_p: float, rng: np.random.Generator):
     scaled = logits / max(temperature, 1e-6)
     idx, probs = topk_softmax(scaled, top_k)
 
@@ -77,7 +72,7 @@ def generate_text(
         logits = model.scores[model.n_tokens - 1]
 
         selected_id, selected_prob = sample_token(
-            logits, temperature, top_k, top_p, rng, logit_processors=None, prev_tokens=generated_tokens
+            logits, temperature, top_k, top_p, rng
         )
 
         token_energy = energy_gate.energy(logits, generated_tokens, token_id=selected_id)
