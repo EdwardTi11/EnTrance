@@ -36,7 +36,7 @@ def objective(trial):
     mmt = MultiMetricPrunerTrial(trial)
     
     alpha = trial.suggest_float("alpha", 0.5, 2.5)
-    gamma = trial.suggest_float("gamma", 0.1, 1.5)
+    gamma = trial.suggest_float("gamma", 0.0, 1.0)
     k_multiplier = trial.suggest_float("k_multiplier", 1.5, 3.5)
     
     energy_gate = EnergyProcessor(model=model, alpha=alpha, gamma=gamma)
@@ -74,7 +74,8 @@ def objective(trial):
         linear_tokens = sum(1 for entry in trace if entry.get("source") == "linear")
         search_passes = sum(entry.get("search_forward_passes", 0) for entry in trace if "search_forward_passes" in entry)
 
-        total_forward_passes += (linear_tokens + search_passes)
+        task_passes = linear_tokens + search_passes
+        total_forward_passes += task_passes
         
         is_correct = False
         if task["verification"] == "regex":
@@ -104,7 +105,7 @@ def objective(trial):
             "task": task_name,
             "difficulty": difficulty,
             "correct": is_correct,
-            "forward_passes": total_forward_passes
+            "forward_passes": task_passes
         })
             
         mmt.report({"errors": total_errors, "passes": total_forward_passes}, step=step)
@@ -127,7 +128,7 @@ if __name__ == "__main__":
         directions=["minimize", "minimize"],
         pruner=mo_pruner
     )
-    study.optimize(objective, n_trials=10)
+    study.optimize(objective, n_trials=50)
 
     best_trials = study.best_trials
     max_errors = max(t.values[0] for t in best_trials) or 1
