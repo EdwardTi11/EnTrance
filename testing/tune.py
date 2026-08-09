@@ -21,7 +21,7 @@ model = Llama(
     logits_all=True
 )
 
-PARAMETER_COUNT = llama_model_n_params(model)
+PARAMETER_COUNT = llama_model_n_params(model.model)
 
 def clean_code_output(text: str) -> str:
     match = re.search(r"```(?:python)?\s*(.*?)```", text, re.DOTALL)
@@ -143,11 +143,16 @@ if __name__ == "__main__":
         norm_flops = trial.values[1] / max_flops
         return (norm_error**2 + norm_flops**2) ** 0.5
 
+    def format_flops(flops: float) -> str:
+        if flops >= 1e12:
+            return f"{flops / 1e12:.2f} TFLOPs"
+        return f"{flops / 1e9:.2f} GFLOPs"
+
     golden_trial = min(best_trials, key=get_distance_to_perfect)
     best = golden_trial.params
     
     print("\n🌟 THE GOLDEN UNIFIED ENTRANCE CONFIGURATION:")
-    print(f"  Errors: {golden_trial.values[0]} | Total FLOPs: {golden_trial.values[1]}")
+    print(f"  Errors: {golden_trial.values[0]} | Total FLOPs: {format_flops(golden_trial.values[1])}")
     print("="*50)
     print(f"tuned_alpha = {best['alpha']:.4f}")
     print(f"tuned_gamma = {best['gamma']:.4f}")
@@ -167,10 +172,10 @@ if __name__ == "__main__":
             f"{status} {result['task']} "
             f"({result['difficulty']})"
         )
-        print(f"    FLOPs: {result['flops']}")
+        print(f"    FLOPs: {format_flops(result['flops'])}")
 
     print("=" * 60)
     print(f"Accuracy: {correct_count}/{len(results)} "
         f"({100 * correct_count / len(results):.2f}%)")
-    print(f"Total FLOPs: {golden_trial.values[1]}")
+    print(f"Total FLOPs: {format_flops(golden_trial.values[1])}")
     print("=" * 60)
