@@ -2,6 +2,7 @@ import numpy as np
 from llama_cpp import Llama
 from model_design.search import should_trigger_search
 from model_design.energy import AdaptiveThresholdTracker
+from model_design.adaptive_control import observe, ObserverTracker, DecoderController
 
 def topk_softmax(logits: np.ndarray, k: int):
     k = min(k, logits.shape[0])
@@ -14,7 +15,12 @@ def topk_softmax(logits: np.ndarray, k: int):
     exp = np.exp(shifted)
     return idx, exp / exp.sum()
 
-def sample_token(logits: np.ndarray, temperature: float, top_k: int, top_p: float, rng: np.random.Generator):
+def sample_token(logits: np.ndarray, temperature: float, top_k: int, top_p: float,
+                  rng: np.random.Generator, logit_processors=None, prev_tokens=None):
+    if logit_processors:
+        for proc in logit_processors:
+            logits = proc(logits, prev_tokens or [])
+
     scaled = logits / max(temperature, 1e-6)
     idx, probs = topk_softmax(scaled, top_k)
 
@@ -39,14 +45,17 @@ def generate_text(
     top_k: int = 40,
     top_p: float = 0.95,
     stop_tokens: list[int] | None = None,
-    seed: int | None = None
+    seed: int | None = None,
+    decoder_controller: DecoderController | None = None,
+    acl_window: int | None = None,
 ):
     rng = np.random.default_rng(seed)
 
     threshold_tracker = AdaptiveThresholdTracker(k_multiplier=k_multiplier)
+    observer_tracker = ObserverTracker(window=acl_window) if decoder_controller else None
 
     messages = [{"role": "user", "content": prompt}]
-    
+
     try:
         formatted_prompt = model.chat_format_handler(messages=messages)["prompt"]
     except Exception:
@@ -71,10 +80,21 @@ def generate_text(
     while len(generated_tokens) < max_tokens:
         logits = model.scores[model.n_tokens - 1]
 
-        selected_id, selected_prob = sample_token(
-            logits, temperature, top_k, top_p, rng
-        )
+        if decoder_controller is not None:
+            obs = observe(logits)
+            entropy_state = observer_tracker.update(obs)
+            policy = decoder_controller.policy(entropy_state, observer_tracker.warmed_up, top_p, top_k)
+            step_temperature = policy["temperature"]
+            step_top_p = policy["top_p"]
+            step_top_k = policy["top_k"]
+        else:
+            step_temperature = temperature
+            step_top_p = top_p
+            step_top_k = top_k
 
+        selected_id, selected_prob = sample_token(
+            logits, step_temperature, step_top_k, step_top_p, rng, logit_processors=None, prev_tokens=generated_tokens
+        )
         token_energy = energy_gate.energy(logits, generated_tokens, token_id=selected_id)
 
         # Compute dynamic threshold based on running statistics (mu + k * sigma)
@@ -111,6 +131,7 @@ def generate_text(
                     "energy": search_result["winning_token_energies"][i],
                     "threshold_used": current_threshold,
                     "source": "search",
+                    "temperature_used": None,
                     "search_forward_passes": search_result["search_forward_passes"] if i == 0 else 0
                 }
                 trace_data.append(entry)
@@ -118,7 +139,7 @@ def generate_text(
 
                 if winning_id in stop_tokens or len(generated_tokens) >= max_tokens:
                     break
-                
+
             print(f"Resuming linear decoding after {len(winning_tokens)} search-injected tokens")
 
             if generated_tokens and generated_tokens[-1] in stop_tokens:
@@ -133,7 +154,8 @@ def generate_text(
             "selected_token_prob": selected_prob,
             "energy": token_energy,
             "threshold_used": current_threshold,
-            "source": "linear"
+            "source": "linear",
+            "temperature_used": step_temperature,
         }
         trace_data.append(entry)
         generated_tokens.append(selected_id)
@@ -144,7 +166,7 @@ def generate_text(
         model.eval([selected_id])
 
     generated_text = model.detokenize(generated_tokens).decode("utf-8", errors="replace")
-    
+
     for entry in trace_data:
         entry["selected_token_str"] = model.detokenize([entry["selected_token_id"]]).decode("utf-8", errors="replace")
 
