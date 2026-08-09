@@ -1,7 +1,7 @@
 import optuna
 import optunahub
 import re
-from llama_cpp import Llama
+from llama_cpp import Llama, llama_model_n_params
 from model_design.engine import generate_text
 from model_design.energy import EnergyProcessor
 from model_design.search import EGALBSSearch
@@ -20,6 +20,8 @@ model = Llama(
     verbose=False,
     logits_all=True
 )
+
+PARAMETER_COUNT = llama_model_n_params(model)
 
 def clean_code_output(text: str) -> str:
     match = re.search(r"```(?:python)?\s*(.*?)```", text, re.DOTALL)
@@ -43,7 +45,7 @@ def objective(trial):
     search_engine = EGALBSSearch(beam_width=4, lookahead_depth=9)
 
     total_errors = 0
-    total_forward_passes = 0
+    estimated_flops = 0
     task_results = []
     
     for step, (task_name, task) in enumerate(TUNING_SUITE.items()):
@@ -52,9 +54,9 @@ def objective(trial):
         difficulty = task.get("difficulty", "Medium")
         if difficulty == "Easy":
             max_tokens_budget = 128
-        elif difficulty in ("Medium"):
+        elif difficulty == "Medium":
             max_tokens_budget = 256
-        elif difficulty in ("Hard"):
+        elif difficulty == "Hard":
             max_tokens_budget = 512
         else:
             max_tokens_budget = 256  # Fallback safety net
@@ -75,7 +77,9 @@ def objective(trial):
         search_passes = sum(entry.get("search_forward_passes", 0) for entry in trace if "search_forward_passes" in entry)
 
         task_passes = linear_tokens + search_passes
-        total_forward_passes += task_passes
+
+        task_flops = 2 * PARAMETER_COUNT * task_passes
+        estimated_flops += task_flops
         
         is_correct = False
         if task["verification"] == "regex":
@@ -105,22 +109,22 @@ def objective(trial):
             "task": task_name,
             "difficulty": difficulty,
             "correct": is_correct,
-            "forward_passes": task_passes
+            "flops": task_flops
         })
             
-        mmt.report({"errors": total_errors, "passes": total_forward_passes}, step=step)
+        mmt.report({"errors": total_errors, "flops": estimated_flops}, step=step)
         if mmt.should_prune():
             raise optuna.TrialPruned()
 
     trial.set_user_attr("task_results", task_results)
-    return total_errors, total_forward_passes
+    return total_errors, estimated_flops
 
 if __name__ == "__main__":
     base_pruner = optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=3)
     
     mo_pruner = MultiMetricPruner(
         base_pruner, 
-        metric_directions={"errors": "minimize", "passes": "minimize"}, 
+        metric_directions={"errors": "minimize", "flops": "minimize"}, 
         joint=True
     )
     
@@ -132,18 +136,18 @@ if __name__ == "__main__":
 
     best_trials = study.best_trials
     max_errors = max(t.values[0] for t in best_trials) or 1
-    max_passes = max(t.values[1] for t in best_trials) or 1
+    max_flops = max(t.values[1] for t in best_trials) or 1
     
     def get_distance_to_perfect(trial):
         norm_error = trial.values[0] / max_errors
-        norm_passes = trial.values[1] / max_passes
-        return (norm_error**2 + norm_passes**2) ** 0.5
+        norm_flops = trial.values[1] / max_flops
+        return (norm_error**2 + norm_flops**2) ** 0.5
 
     golden_trial = min(best_trials, key=get_distance_to_perfect)
     best = golden_trial.params
     
     print("\n🌟 THE GOLDEN UNIFIED ENTRANCE CONFIGURATION:")
-    print(f"  Errors: {golden_trial.values[0]} | Total Forward Passes: {golden_trial.values[1]}")
+    print(f"  Errors: {golden_trial.values[0]} | Total FLOPs: {golden_trial.values[1]}")
     print("="*50)
     print(f"tuned_alpha = {best['alpha']:.4f}")
     print(f"tuned_gamma = {best['gamma']:.4f}")
@@ -163,12 +167,10 @@ if __name__ == "__main__":
             f"{status} {result['task']} "
             f"({result['difficulty']})"
         )
-        print(f"    Forward Passes: {result['forward_passes']}")
+        print(f"    FLOPs: {result['flops']}")
 
     print("=" * 60)
     print(f"Accuracy: {correct_count}/{len(results)} "
         f"({100 * correct_count / len(results):.2f}%)")
-    print(f"Total Forward Passes: {golden_trial.values[1]}")
-    print(f"Average Forward Passes: "
-        f"{golden_trial.values[1] / len(results):.1f}")
+    print(f"Total FLOPs: {golden_trial.values[1]}")
     print("=" * 60)
