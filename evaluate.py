@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from benchmarks import BENCHMARKS, get_benchmark
+from model_design.engine import generate_text
 
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
@@ -17,13 +18,10 @@ MODES = ("baseline", "entranced")
 # the two larger benchmarks default to a fixed, deterministic subset.
 DEFAULT_LIMITS = {"aime2025": 30, "gpqa_diamond": 32, "livecodebench": 12}
 
-
 def count_forward_passes(trace: list[dict]) -> int:
-    """Replicate the forward-pass accounting from ``testing/tune.py``."""
     linear = sum(1 for entry in trace if entry.get("source") == "linear")
     search = sum(int(entry.get("search_forward_passes") or 0) for entry in trace)
     return linear + search
-
 
 def format_flops(flops: float) -> str:
     if flops >= 1e15:
@@ -34,13 +32,10 @@ def format_flops(flops: float) -> str:
         return f"{flops / 1e9:.2f} GFLOPs"
     return f"{flops / 1e6:.2f} MFLOPs"
 
-
 def format_count(n: int) -> str:
     return f"{n:,}"
 
-
 def run_generation(model, problem, energy_gate, k_multiplier, search_engine, seed, gen):
-    """Run one generation, returning ``(text, forward_passes)``."""
     model.reset()
     buffer = io.StringIO()
     with redirect_stdout(buffer):
@@ -73,7 +68,6 @@ def summarize(bench_name: str, problems: list[dict]) -> dict:
         }
     return summary
 
-
 def print_benchmark_table(summary: dict) -> None:
     print(f"\n{summary['benchmark']} ({summary['num_problems']} problems)")
     print("-" * 78)
@@ -91,7 +85,6 @@ def print_benchmark_table(summary: dict) -> None:
             f"{format_flops(row['total_flops']):<16} "
             f"{format_flops(row['avg_flops']):<18}"
         )
-
 
 def print_overall(summaries: list[dict], parameter_count: int) -> None:
     total_problems = sum(s["num_problems"] for s in summaries)
@@ -293,7 +286,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nResults saved to {args.save_results}")
 
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
