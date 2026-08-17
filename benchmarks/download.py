@@ -239,7 +239,7 @@ def _decode_tests(raw: str | None) -> list[dict]:
 def download_livecodebench(limit: int | None = None) -> list[dict]:
     rows = _fetch_all(
         "lighteval/code_generation_lite",
-        "release_v1",
+        "release_v5",
         "test",
         limit=limit,
     )

@@ -6,8 +6,12 @@ import json
 from contextlib import redirect_stdout
 from pathlib import Path
 
+from llama_cpp import Llama, llama_model_n_params
+
 from benchmarks import BENCHMARKS, get_benchmark
 from model_design.engine import generate_text
+from model_design.energy import EnergyProcessor
+from model_design.search import EGALBSSearch
 
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
@@ -177,14 +181,6 @@ def main(argv: list[str] | None = None) -> int:
             for problem in problems:
                 print(f"  - {problem.id}")
         return 0
-
-    # Heavy imports happen only when we actually run, so ``--list-only``
-    # works without llama_cpp / numpy installed.
-    from llama_cpp import Llama, llama_model_n_params
-
-    from model_design.engine import generate_text
-    from model_design.energy import EnergyProcessor
-    from model_design.search import EGALBSSearch
 
     model_path = Path(args.model)
     if not model_path.exists():
