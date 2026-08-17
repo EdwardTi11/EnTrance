@@ -1,25 +1,3 @@
-"""Download official benchmark data into ``benchmarks/data/``.
-
-Uses the Hugging Face datasets-server HTTP API (and, for the official GPQA
-release, the raw CSV behind its license gate) so no extra dependency beyond
-the standard library is required.  Each benchmark is normalized into a small
-local JSON file that ``evaluate.py`` reads directly.
-
-Sources
--------
-* AIME 2025 (I + II): ``opencompass/AIME2025``
-* GPQA Diamond: ``Idavidrein/gpqa`` (official, gated; used when ``HF_TOKEN``
-  is set) with automatic fallback to the ungated ``fingertap/GPQA-Diamond``
-  mirror
-* LiveCodeBench (release v1): ``livecodebench/code_generation_lite``, fetched
-  through the LightEval parquet mirror ``lighteval/code_generation_lite``
-
-Usage
------
-    python -m benchmarks.download                # defaults below
-    python -m benchmarks.download --gpqa-limit 198 --lcb-limit 12
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -41,7 +19,6 @@ _UA = {"User-Agent": "EnTrance-benchmark-downloader/1.0"}
 
 DS_SERVER = "https://datasets-server.huggingface.co"
 
-
 # ---------------------------------------------------------------------------
 # datasets-server plumbing
 # ---------------------------------------------------------------------------
@@ -59,12 +36,10 @@ def _rows(dataset: str, config: str, split: str, offset: int, length: int) -> li
     )
     return _fetch_json(url)["rows"]
 
-
 def _fetch_text(url: str, headers: dict | None = None) -> str:
     request = urllib.request.Request(url, headers={**_UA, **(headers or {})})
     with urllib.request.urlopen(request, timeout=60) as response:
         return response.read().decode("utf-8")
-
 
 def _fetch_all(
     dataset: str,
@@ -73,7 +48,7 @@ def _fetch_all(
     limit: int | None = None,
     page_size: int = 100,
 ) -> list[dict]:
-    """Fetch rows, paginating by ``page_size`` (the API caps at 100)."""
+    # Fetch rows, paginating by ``page_size`` (the API caps at 100).
     collected: list[dict] = []
     offset = 0
     while True:
@@ -92,11 +67,6 @@ def _fetch_all(
         if limit is not None and len(collected) >= limit:
             break
     return collected
-
-
-# ---------------------------------------------------------------------------
-# AIME 2025
-# ---------------------------------------------------------------------------
 
 def download_aime2025(limit: int | None = None) -> list[dict]:
     problems: list[dict] = []
@@ -124,11 +94,6 @@ def download_aime2025(limit: int | None = None) -> list[dict]:
     if limit is not None:
         problems = problems[:limit]
     return problems
-
-
-# ---------------------------------------------------------------------------
-# GPQA Diamond
-# ---------------------------------------------------------------------------
 
 def download_gpqa_official(token: str, limit: int | None = None) -> list[dict]:
     url = "https://huggingface.co/datasets/Idavidrein/gpqa/resolve/main/gpqa_diamond.csv"
@@ -168,18 +133,10 @@ def download_gpqa_official(token: str, limit: int | None = None) -> list[dict]:
             break
     return problems
 
-
 _LOWER_OPT = re.compile(r"^([a-d])\)\s*(.+)$")
 _MAPPING = re.compile(r"^([A-D])\.\s*([a-d])$")
 
-
 def _clean_mirror_question(question: str, answer: str) -> tuple[str, str]:
-    """Fix the one mirror row that renders answer choices twice.
-
-    A handful of GPQA questions embed their own ``a) b) c) d)`` list in the
-    question text; the mirror then appends an ``A. x / B. y ...`` mapping to
-    it.  Re-render that case as a single clean ``A-D`` option list.
-    """
     nonempty = [line.strip() for line in question.splitlines() if line.strip()]
     if len(nonempty) < 8:
         return question, answer
@@ -216,7 +173,6 @@ def _clean_mirror_question(question: str, answer: str) -> tuple[str, str]:
         return question, answer
     return f"{header}\n\n{rendered}", new_answer
 
-
 def download_gpqa_mirror(limit: int | None = None) -> list[dict]:
     rows = _fetch_all("fingertap/GPQA-Diamond", "default", "test", limit=limit)
     problems: list[dict] = []
@@ -233,7 +189,6 @@ def download_gpqa_mirror(limit: int | None = None) -> list[dict]:
         )
     return problems
 
-
 def download_gpqa(limit: int | None = None) -> list[dict]:
     token = os.environ.get("HF_TOKEN")
     if token:
@@ -247,17 +202,7 @@ def download_gpqa(limit: int | None = None) -> list[dict]:
             )
     return download_gpqa_mirror(limit)
 
-
-# ---------------------------------------------------------------------------
-# LiveCodeBench
-# ---------------------------------------------------------------------------
-
 def _decode_tests(raw: str | None) -> list[dict]:
-    """Parse LCB test cases.
-
-    Public tests are plain JSON.  Private tests in the LiveCodeBench
-    dataset are stored as ``base64(zlib(pickle(json_string)))``.
-    """
     if not raw:
         return []
 
@@ -291,7 +236,6 @@ def _decode_tests(raw: str | None) -> list[dict]:
         return []
     return []
 
-
 def download_livecodebench(limit: int | None = None) -> list[dict]:
     rows = _fetch_all(
         "lighteval/code_generation_lite",
@@ -315,11 +259,6 @@ def download_livecodebench(limit: int | None = None) -> list[dict]:
         )
     return problems
 
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
 def _write(filename: str, problems: list[dict]) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     path = DATA_DIR / filename
@@ -327,7 +266,6 @@ def _write(filename: str, problems: list[dict]) -> None:
         json.dumps(problems, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     print(f"Wrote {len(problems)} problems -> {path}")
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)

@@ -1,5 +1,3 @@
-"""AIME 2025 (I + II) — 30 problems with integer answers."""
-
 from __future__ import annotations
 
 import json
@@ -13,7 +11,6 @@ _AIME_PROMPT = (
     "final answer on the last line in the form `Answer: <integer>` "
     "(a single integer from 0 to 999)."
 )
-
 
 class AIME2025Benchmark(Benchmark):
     name = "aime2025"

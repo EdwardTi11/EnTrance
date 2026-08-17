@@ -1,9 +1,3 @@
-"""Benchmark package for EnTrance evaluation.
-
-New benchmarks are registered in :data:`BENCHMARKS` and are then available
-to ``evaluate.py`` by name.
-"""
-
 from __future__ import annotations
 
 from .base import Benchmark, Problem
@@ -18,7 +12,6 @@ BENCHMARKS: dict[str, type[Benchmark]] = {
     "gpqa_diamond": GPQADiamondBenchmark,
     "livecodebench": LiveCodeBenchBenchmark,
 }
-
 
 def get_benchmark(name: str) -> Benchmark:
     try:

@@ -1,5 +1,3 @@
-"""GPQA Diamond — graduate-level multiple-choice reasoning."""
-
 from __future__ import annotations
 
 import json
@@ -11,7 +9,6 @@ _GPQA_PROMPT = (
     "{question}\n\n"
     "Answer with only the letter of the correct option (A, B, C, or D)."
 )
-
 
 class GPQADiamondBenchmark(Benchmark):
     name = "gpqa_diamond"

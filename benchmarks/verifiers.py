@@ -6,10 +6,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# AIME (integer answers, 0-999)
-# ---------------------------------------------------------------------------
-
 def extract_aime_answer(output: str) -> int | None:
     text = output.strip()
 
@@ -34,11 +30,6 @@ def extract_aime_answer(output: str) -> int | None:
 
     return None
 
-
-# ---------------------------------------------------------------------------
-# GPQA (multiple choice, single letter A-D)
-# ---------------------------------------------------------------------------
-
 def extract_gpqa_answer(output: str) -> str | None:
     text = output.strip()
 
@@ -53,11 +44,6 @@ def extract_gpqa_answer(output: str) -> str | None:
         return matches[-1].upper()
 
     return None
-
-
-# ---------------------------------------------------------------------------
-# LiveCodeBench (code extracted from the output, run against test cases)
-# ---------------------------------------------------------------------------
 
 _FENCE = re.compile(r"```(?:python|py)?[ \t]*\r?\n(.*?)```", re.DOTALL)
 _CODE_START = re.compile(
@@ -131,11 +117,6 @@ def run_python_tests(
     tests: list[dict],
     timeout: float = 10.0,
 ) -> tuple[bool, str]:
-    """Run ``code`` against LiveCodeBench-style test cases.
-
-    ``tests`` entries look like ``{"input": ..., "output": ..., "testtype":
-    "stdin" | "functional"}``.  Returns ``(passed, reason)``.
-    """
     if not code.strip():
         return False, "empty solution"
     if not tests:

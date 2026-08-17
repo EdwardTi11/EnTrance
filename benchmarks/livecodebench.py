@@ -1,9 +1,3 @@
-"""LiveCodeBench — competitive-programming code generation.
-
-Verified by executing the model's code against the official public and
-private test cases shipped with the dataset.
-"""
-
 from __future__ import annotations
 
 import json
@@ -19,7 +13,6 @@ _LCB_PROMPT = (
     "standard input and write to standard output. Wrap the code in a single "
     "```python code block. Do not include any explanation."
 )
-
 
 class LiveCodeBenchBenchmark(Benchmark):
     name = "livecodebench"
