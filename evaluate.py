@@ -6,12 +6,14 @@ import json
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from llama_cpp import Llama, llama_model_n_params
-
-from benchmarks import BENCHMARKS, get_benchmark
+from benchmarks import BENCHMARKS, get_dataset
+from benchmarks._verification import (
+    extract_aime_answer,
+    extract_code,
+    extract_gpqa_answer,
+    verify_livecodebench,
+)
 from model_design.engine import generate_text
-from model_design.energy import EnergyProcessor
-from model_design.search import EGALBSSearch
 
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
@@ -22,10 +24,17 @@ MODES = ("baseline", "entranced")
 # the two larger benchmarks default to a fixed, deterministic subset.
 DEFAULT_LIMITS = {"aime2025": 30, "gpqa_diamond": 32, "livecodebench": 12}
 
+# ---------------------------------------------------------------------------
+# FLOPs helpers
+# ---------------------------------------------------------------------------
+
 def count_forward_passes(trace: list[dict]) -> int:
     linear = sum(1 for entry in trace if entry.get("source") == "linear")
-    search = sum(int(entry.get("search_forward_passes") or 0) for entry in trace)
+    search = sum(
+        int(entry.get("search_forward_passes") or 0) for entry in trace
+    )
     return linear + search
+
 
 def format_flops(flops: float) -> str:
     if flops >= 1e15:
@@ -39,13 +48,20 @@ def format_flops(flops: float) -> str:
 def format_count(n: int) -> str:
     return f"{n:,}"
 
-def run_generation(model, problem, energy_gate, k_multiplier, search_engine, seed, gen):
+
+# ---------------------------------------------------------------------------
+# Generation
+# ---------------------------------------------------------------------------
+
+def run_generation(
+    model, problem_prompt, energy_gate, k_multiplier, search_engine, seed, gen
+):
     model.reset()
     buffer = io.StringIO()
     with redirect_stdout(buffer):
         text, trace = generate_text(
             model=model,
-            prompt=problem.prompt,
+            prompt=problem_prompt,
             energy_gate=energy_gate,
             k_multiplier=k_multiplier,
             search_engine=search_engine,
@@ -57,6 +73,34 @@ def run_generation(model, problem, energy_gate, k_multiplier, search_engine, see
         )
     return text, count_forward_passes(trace)
 
+
+# ---------------------------------------------------------------------------
+# Scoring — dispatches to the right verification function per benchmark
+# ---------------------------------------------------------------------------
+
+def verify(bench_name: str, sample, output: str) -> bool:
+    """Return True if *output* is correct for *sample* on *bench_name*."""
+    if bench_name == "aime2025":
+        extracted = extract_aime_answer(output)
+        return extracted is not None and extracted == int(sample.target)
+    elif bench_name == "gpqa_diamond":
+        extracted = extract_gpqa_answer(output)
+        return extracted is not None and extracted == sample.target
+    elif bench_name == "livecodebench":
+        code = extract_code(output)
+        raw = sample.metadata.get("raw", {}) if sample.metadata else {}
+        starter = (raw.get("starter_code") or "").strip()
+        if starter:
+            code = f"{starter}\n\n{code}"
+        tests = raw.get("private_tests") or raw.get("public_tests") or []
+        ok, _reason = verify_livecodebench(code, tests)
+        return ok
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Reporting
+# ---------------------------------------------------------------------------
 
 def summarize(bench_name: str, problems: list[dict]) -> dict:
     summary = {"benchmark": bench_name, "num_problems": len(problems)}
@@ -170,16 +214,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Unknown benchmark(s): {unknown}. Available: {sorted(BENCHMARKS)}")
         return 2
 
-    benchmarks = [(name, get_benchmark(name), limits[name]) for name in selected]
-
     # --list-only: validate data without loading the model.
     if args.list_only:
-        for name, benchmark, limit in benchmarks:
-            problems = benchmark.load()
-            problems = problems[:limit] if limit is not None else problems
-            print(f"{name}: {len(problems)} problems to evaluate")
-            for problem in problems:
-                print(f"  - {problem.id}")
+        for name in selected:
+            dataset = get_dataset(name, limit=limits[name])
+            samples = list(dataset)
+            print(f"{name}: {len(samples)} problems to evaluate")
+            for sample in samples:
+                print(f"  - {sample.id}")
         return 0
 
     model_path = Path(args.model)
@@ -187,6 +229,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Model not found: {model_path}")
         print("Point --model at your GGUF file (e.g. models/<name>.gguf).")
         return 1
+
+    # Lazy imports — only needed when we have a model to evaluate.
+    from llama_cpp import Llama, llama_model_n_params  # noqa: PLC0415
+    from model_design.energy import EnergyProcessor  # noqa: PLC0415
+    from model_design.engine import generate_text  # noqa: PLC0415
+    from model_design.search import EGALBSSearch  # noqa: PLC0415
 
     print(f"Loading model: {model_path}")
     model = Llama(
@@ -216,36 +264,39 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Parameters : {format_count(parameter_count)}")
     print("FLOPs model: estimated_flops = 2 * parameter_count * forward_passes")
     print(f"Seed       : {args.seed}")
-    print(f"Baseline   : linear decoding (search_engine=None)")
+    print("Baseline   : linear decoding (search_engine=None)")
     print(
         f"EnTrance   : EGALBS beam={args.beam_width} "
         f"depth={args.lookahead_depth} alpha={args.alpha} "
         f"gamma={args.gamma} k={args.k_multiplier}"
     )
 
-    summaries = []
-    all_results = []
-    for name, benchmark, limit in benchmarks:
-        problems = benchmark.load()
-        problems = problems[:limit] if limit is not None else problems
+    summaries: list[dict] = []
+    all_results: list[dict] = []
 
-        results = []
-        for index, problem in enumerate(problems, start=1):
-            row = {"benchmark": name, "id": problem.id}
+    for name in selected:
+        dataset = get_dataset(name, limit=limits[name])
+        samples = list(dataset)
+        results: list[dict] = []
+
+        for index, sample in enumerate(samples, start=1):
+            row = {"benchmark": name, "id": str(sample.id)}
+            prompt = sample.input
+
             for mode in MODES:
                 search = search_engine if mode == "entranced" else None
                 text, passes = run_generation(
-                    model, problem, energy_gate, args.k_multiplier,
+                    model, prompt, energy_gate, args.k_multiplier,
                     search, args.seed, generation,
                 )
-                correct = benchmark.verify(problem, text)
+                correct = verify(name, sample, text)
                 flops = 2 * parameter_count * passes
                 row[mode] = {"correct": correct, "passes": passes, "flops": flops}
                 if args.save_outputs:
                     row[mode]["output"] = text
                 status = "OK " if correct else "BAD"
                 print(
-                    f"[{name} {index}/{len(problems)}] {problem.id:<24} "
+                    f"[{name} {index}/{len(samples)}] {str(sample.id):<24} "
                     f"{mode:<9} {status}  ({format_count(passes)} passes, "
                     f"{format_flops(flops)})"
                 )

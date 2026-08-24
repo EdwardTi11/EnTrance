@@ -1,22 +1,43 @@
 from __future__ import annotations
 
-from .base import Benchmark, Problem
-from .aime2025 import AIME2025Benchmark
-from .gpqa_diamond import GPQADiamondBenchmark
-from .livecodebench import LiveCodeBenchBenchmark
+from ._verification import (
+    extract_aime_answer,
+    extract_code,
+    extract_gpqa_answer,
+    verify_livecodebench,
+)
+from .datasets import DATASETS, aime2025, gpqa_diamond, livecodebench
+from .scorers import SCORERS, aime2025 as aime2025_scorer
+from .scorers import gpqa_diamond as gpqa_diamond_scorer
+from .scorers import livecodebench as livecodebench_scorer
 
-__all__ = ["Benchmark", "Problem", "BENCHMARKS", "get_benchmark"]
+__all__ = [
+    # Datasets
+    "DATASETS",
+    "aime2025",
+    "gpqa_diamond",
+    "livecodebench",
+    # Scorers
+    "SCORERS",
+    "aime2025_scorer",
+    "gpqa_diamond_scorer",
+    "livecodebench_scorer",
+    # Verification
+    "extract_aime_answer",
+    "extract_gpqa_answer",
+    "extract_code",
+    "verify_livecodebench",
+]
 
-BENCHMARKS: dict[str, type[Benchmark]] = {
-    "aime2025": AIME2025Benchmark,
-    "gpqa_diamond": GPQADiamondBenchmark,
-    "livecodebench": LiveCodeBenchBenchmark,
-}
+BENCHMARKS: list[str] = list(DATASETS)
 
-def get_benchmark(name: str) -> Benchmark:
+
+def get_dataset(name: str, limit: int | None = None):
+    """Return an inspect_ai MemoryDataset for *name*."""
     try:
-        return BENCHMARKS[name]()
+        loader = DATASETS[name]
     except KeyError:
         raise KeyError(
-            f"Unknown benchmark {name!r}. Available: {sorted(BENCHMARKS)}"
+            f"Unknown benchmark {name!r}. Available: {sorted(DATASETS)}"
         ) from None
+    return loader(limit=limit)

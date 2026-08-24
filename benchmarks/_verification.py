@@ -1,3 +1,10 @@
+"""Plain synchronous verification functions.
+
+These are called directly by evaluate.py during the custom evaluation loop.
+They are also wrapped as inspect_ai @scorer functions in scorers.py so the
+same logic is available if someone wants to use inspect_ai's eval() pipeline.
+"""
+
 from __future__ import annotations
 
 import re
@@ -5,6 +12,11 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# AIME 2025 — extract integer answer
+# ---------------------------------------------------------------------------
 
 def extract_aime_answer(output: str) -> int | None:
     text = output.strip()
@@ -30,6 +42,11 @@ def extract_aime_answer(output: str) -> int | None:
 
     return None
 
+
+# ---------------------------------------------------------------------------
+# GPQA Diamond — extract multiple-choice letter
+# ---------------------------------------------------------------------------
+
 def extract_gpqa_answer(output: str) -> str | None:
     text = output.strip()
 
@@ -44,6 +61,11 @@ def extract_gpqa_answer(output: str) -> str | None:
         return matches[-1].upper()
 
     return None
+
+
+# ---------------------------------------------------------------------------
+# LiveCodeBench — extract and test Python code
+# ---------------------------------------------------------------------------
 
 _FENCE = re.compile(r"```(?:python|py)?[ \t]*\r?\n(.*?)```", re.DOTALL)
 _CODE_START = re.compile(
@@ -61,7 +83,7 @@ def extract_code(output: str) -> str:
     text = re.sub(r"^```[A-Za-z]*\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
 
-    # If prose precedes the code, start at the first line that looks like code.
+    # Start at the first line that looks like code.
     lines = text.splitlines()
     for i, line in enumerate(lines):
         if _CODE_START.match(line.strip()):
@@ -71,8 +93,6 @@ def extract_code(output: str) -> str:
 
 
 def _normalize(text: str) -> str:
-    # Match LiveCodeBench's output comparison: drop trailing whitespace on
-    # each line and trailing blank lines.
     return "\n".join(line.rstrip() for line in text.rstrip("\n").splitlines()).strip()
 
 
@@ -99,12 +119,12 @@ def _run_stdin_test(script: str, test: dict, timeout: float) -> tuple[bool, str]
 
 
 def _run_functional_test(code: str, test: dict, timeout: float) -> tuple[bool, str]:
-    del timeout  # functional tests are in-process; a runaway call is unlikely here
+    del timeout  # functional tests run in-process
     namespace: dict = {}
     try:
         exec(compile(code, "<solution>", "exec"), namespace)
         got = eval(test.get("input", ""), namespace)
-    except Exception as exc:  # noqa: BLE001 - we report the exception text
+    except Exception as exc:  # noqa: BLE001
         return False, f"{type(exc).__name__}: {exc}"
 
     if str(got).strip() != str(test.get("output", "")).strip():
@@ -112,7 +132,7 @@ def _run_functional_test(code: str, test: dict, timeout: float) -> tuple[bool, s
     return True, ""
 
 
-def run_python_tests(
+def verify_livecodebench(
     code: str,
     tests: list[dict],
     timeout: float = 10.0,
