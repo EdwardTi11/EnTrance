@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 from inspect_ai import Task, eval
 from inspect_ai.dataset import MemoryDataset
@@ -20,16 +21,13 @@ DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "microsoft_Phi-4-mini-instruct-Q4_K_
 MODES = ("baseline", "entranced")
 DEFAULT_LIMITS = {"aime2025": 30, "gpqa_diamond": 50, "bigcodebench": 40}
 
-BENCHMARK_TASKS = {
-    "aime2025": aime2025,
-    "gpqa_diamond": gpqa_diamond,
-    "bigcodebench": bigcodebench,
-}
 
-def count_forward_passes(trace: list[dict]) -> int:
-    linear = sum(1 for entry in trace if entry.get("source") == "linear")
-    search = sum(int(entry.get("search_forward_passes") or 0) for entry in trace)
-    return linear + search
+def count_forward_passes(trace: list[dict[str, Any]]) -> int:
+    linear_tokens = sum(entry.get("source") == "linear" for entry in trace)
+    search_forward_passes = sum(
+        int(entry.get("search_forward_passes") or 0) for entry in trace
+    )
+    return linear_tokens + search_forward_passes
 
 def format_flops(flops: float) -> str:
     if flops >= 1e15:
@@ -40,26 +38,22 @@ def format_flops(flops: float) -> str:
         return f"{flops / 1e9:.2f} GFLOPs"
     return f"{flops / 1e6:.2f} MFLOPs"
 
-def format_count(n: int) -> str:
-    return f"{n:,}"
 
 @solver
 def entrance_generation(
-    model_instance,
-    energy_gate,
-    search_engine,
+    model_instance: Llama,
+    energy_gate: EnergyProcessor,
+    search_engine: EGALBSSearch | None,
     k_multiplier: float,
     seed: int,
-    gen_config: dict,
+    gen_config: dict[str, Any],
 ):
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         model_instance.reset()
-        prompt = state.user_prompt.text
-
         text, trace = generate_text(
             model=model_instance,
-            prompt=prompt,
+            prompt=state.user_prompt.text,
             energy_gate=energy_gate,
             k_multiplier=k_multiplier,
             search_engine=search_engine,
@@ -70,64 +64,49 @@ def entrance_generation(
             top_p=gen_config["top_p"],
         )
 
-        passes = count_forward_passes(trace)
         state.output.completion = text
-        state.metadata["forward_passes"] = passes
+        state.metadata["forward_passes"] = count_forward_passes(trace)
         return state
 
     return solve
 
-def get_inspect_task(bench_name: str, limit: int, custom_solver) -> Task:
-    task_func = BENCHMARK_TASKS[bench_name]
-    
-    # Initialize the inspect_evals task with built-in dataset and default scorer
-    task_instance = task_func()
-    
-    # Cap dataset length if limit is provided
-    if limit and len(task_instance.dataset) > limit:
-        task_instance.dataset = MemoryDataset(task_instance.dataset[:limit])
-        
-    # Inject custom generation solver ahead of task processing/scoring
-    task_instance.solver = custom_solver
-    return task_instance
+def inspect_task(name: str, solver_instance, limit: int) -> Task:
+    if name == "aime2025":
+        task = aime2025()
+    elif name == "gpqa_diamond":
+        task = gpqa_diamond()
+    elif name == "bigcodebench":
+        # Keep the official scorer; it requires Docker at runtime.
+        task = bigcodebench()
+    else:
+        raise ValueError(f"Unknown benchmark: {name}")
+    if limit and len(task.dataset) > limit:
+        task.dataset = MemoryDataset(list(task.dataset)[:limit])
+    task.solver = solver_instance
+    return task
 
-def summarize_log_results(bench_name: str, eval_results: dict) -> dict:
-    summary = {"benchmark": bench_name, "num_problems": len(eval_results["baseline"])}
-    for mode in MODES:
-        results = eval_results[mode]
-        correct = sum(1 for r in results if r["correct"])
-        total_flops = sum(r["flops"] for r in results)
-        summary[mode] = {
-            "correct": correct,
-            "num_problems": len(results),
-            "pass_at_1": correct / len(results) if results else 0.0,
-            "total_flops": total_flops,
-            "avg_flops": total_flops / len(results) if results else 0.0,
-        }
-    return summary
 
-def print_benchmark_table(summary: dict) -> None:
-    print(f"\n{summary['benchmark']} ({summary['num_problems']} problems)")
-    print("-" * 78)
-    header = (
-        f"{'mode':<10} {'correct':<16} {'Pass@1':<10} "
-        f"{'total FLOPs':<16} {'avg FLOPs/problem':<18}"
-    )
-    print(header)
+def summarize(name: str, logs_by_mode, parameter_count: int) -> None:
+    print(f"\n{name}\n" + "-" * 78)
+    print(f"{'mode':<12} {'samples':<10} {'Pass@1':<10} {'total FLOPs':<18} {'avg FLOPs':<18}")
     for mode in MODES:
-        row = summary[mode]
-        print(
-            f"{mode:<10} "
-            f"{row['correct']}/{row['num_problems']:<14} "
-            f"{row['pass_at_1'] * 100:>6.2f}%   "
-            f"{format_flops(row['total_flops']):<16} "
-            f"{format_flops(row['avg_flops']):<18}"
+        samples = logs_by_mode[mode].samples or []
+        correct = sum(
+            sample.score is not None and sample.score.value in (True, 1, 1.0)
+            for sample in samples
         )
+        total_flops = sum(
+            2 * parameter_count * int((sample.metadata or {}).get("forward_passes", 0))
+            for sample in samples
+        )
+        average = total_flops / len(samples) if samples else 0
+        pass_at_1 = correct / len(samples) if samples else 0
+        print(f"{mode:<12} {len(samples):<10} {pass_at_1 * 100:>6.2f}%   {format_flops(total_flops):<18} {format_flops(average):<18}")
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Run EnTrance through Inspect AI.")
     parser.add_argument("--model", default=str(DEFAULT_MODEL_PATH))
-    parser.add_argument("--benchmarks", default=",".join(BENCHMARK_TASKS.keys()))
+    parser.add_argument("--benchmarks", default=",".join(DEFAULT_LIMITS))
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--aime-limit", type=int, default=DEFAULT_LIMITS["aime2025"])
     parser.add_argument("--gpqa-limit", type=int, default=DEFAULT_LIMITS["gpqa_diamond"])
@@ -162,9 +141,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.list_only:
         for name in selected:
-            task_obj = BENCHMARK_TASKS[name]()
-            dataset_len = min(len(task_obj.dataset), limits[name])
-            print(f"{name}: {dataset_len} problems to evaluate")
+            task = inspect_task(name, None, limits[name])
+            print(f"{name}: {len(task.dataset)} problems to evaluate")
         return 0
 
     model_path = Path(args.model)
@@ -191,49 +169,22 @@ def main(argv: list[str] | None = None) -> int:
         "top_p": args.top_p,
     }
 
-    summaries = []
-
     for name in selected:
-        eval_mode_results = {}
+        logs_by_mode = {}
         for mode in MODES:
-            engine = search_engine if mode == "entranced" else None
             solver_comp = entrance_generation(
                 model_instance=model,
                 energy_gate=energy_gate,
-                search_engine=engine,
+                search_engine=search_engine if mode == "entranced" else None,
                 k_multiplier=args.k_multiplier,
                 seed=args.seed,
                 gen_config=gen_config,
             )
 
             # Construct task from inspect_evals module
-            task_obj = get_inspect_task(name, limits[name], solver_comp)
-            
-            # Execute evaluation with inspect_ai engine
-            results_log = eval(task_obj)[0]
+            logs_by_mode[mode] = eval(inspect_task(name, solver_comp, limits[name]))[0]
 
-            parsed_results = []
-            for sample in results_log.samples:
-                passes = sample.metadata.get("forward_passes", 0)
-                # Parse inspect_ai score result
-                is_correct = (
-                    sample.score.value == 1.0
-                    if (sample.score and sample.score.value is not None)
-                    else False
-                )
-                flops = 2 * parameter_count * passes
-                parsed_results.append({
-                    "correct": is_correct,
-                    "passes": passes,
-                    "flops": flops,
-                    "output": sample.output.completion if sample.output else "",
-                })
-
-            eval_mode_results[mode] = parsed_results
-
-        summary = summarize_log_results(name, eval_mode_results)
-        summaries.append(summary)
-        print_benchmark_table(summary)
+        summarize(name, logs_by_mode, parameter_count)
 
     return 0
 
