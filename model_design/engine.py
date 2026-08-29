@@ -52,14 +52,11 @@ def generate_text(
     rng = np.random.default_rng(seed)
 
     threshold_tracker = AdaptiveThresholdTracker(k_multiplier=k_multiplier)
-    observer_tracker = ObserverTracker(window=acl_window) if decoder_controller else None
+    observer_tracker = ObserverTracker(window=acl_window if acl_window is not None else 64) if decoder_controller else None
 
     messages = [{"role": "user", "content": prompt}]
 
-    try:
-        formatted_prompt = model.chat_format_handler(messages=messages)["prompt"]
-    except Exception:
-        formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+    formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
     tokens = model.tokenize(formatted_prompt.encode("utf-8"))
     remaining_budget = model.n_ctx() - len(tokens) - 4
@@ -80,7 +77,7 @@ def generate_text(
     while len(generated_tokens) < max_tokens:
         logits = model.scores[model.n_tokens - 1]
 
-        if decoder_controller is not None:
+        if decoder_controller is not None and observer_tracker is not None:
             obs = observe(logits)
             entropy_state = observer_tracker.update(obs)
             policy = decoder_controller.policy(entropy_state, observer_tracker.warmed_up, top_p, top_k)
@@ -105,7 +102,7 @@ def generate_text(
         if not search_allowed and cooldown_counter > 0:
             cooldown_counter -= 1
 
-        if search_allowed and should_trigger_search(token_energy, current_threshold):
+        if search_allowed and search_engine is not None and should_trigger_search(token_energy, current_threshold):
             token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
             print(
                 f"\n🛑 [ADAPTIVE SPIKE DETECTED] Token: {token_str!r} | "
