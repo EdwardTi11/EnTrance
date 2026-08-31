@@ -19,7 +19,6 @@ class EGALBSSearch:
         self.token_selector = token_selector or greedy_token
 
     def run(self, model, energy_gate, logits: np.ndarray, prev_tokens: list[int]) -> dict:
-        original_n_tokens = model.n_tokens
         candidates = top_k_candidates(logits, self.beam_width)
 
         best_tokens = None
@@ -29,14 +28,10 @@ class EGALBSSearch:
 
         window = getattr(energy_gate, "repetition_window", None)
         history_tail = prev_tokens[-window:] if window else prev_tokens
+        saved_state = model.save_state()
 
         for candidate in candidates:
-            model.n_tokens = original_n_tokens
-
-            try:
-                model._ctx.kv_cache_seq_rm(seq_id=-1, p0=original_n_tokens, p1=-1)
-            except AttributeError:
-                pass
+            model.load_state(saved_state)
 
             beam_tokens = []
             token_energies = []
@@ -65,7 +60,7 @@ class EGALBSSearch:
                 if next_token == model.token_eos():
                     break
 
-                step_logits = model.scores[model.n_tokens - 1]
+                step_logits = np.array(model.scores[model.n_tokens - 1])
                 next_token = self.token_selector(step_logits)
 
             if cumulative_energy < best_winning_energy:
@@ -73,11 +68,7 @@ class EGALBSSearch:
                 best_token_energies = token_energies
                 best_winning_energy = cumulative_energy
 
-        model.n_tokens = original_n_tokens
-        try:
-            model._ctx.kv_cache_seq_rm(seq_id=-1, p0=original_n_tokens, p1=-1)
-        except AttributeError:
-            pass
+        model.load_state(saved_state)
 
         if best_tokens is None:
             winning_tokens = [candidates[0]]
