@@ -1,6 +1,5 @@
 import numpy as np
 from llama_cpp import Llama
-from model_design.search import should_trigger_search
 from model_design.energy import AdaptiveThresholdTracker
 from model_design.adaptive_control import observe, ObserverTracker, DecoderController
 
@@ -39,7 +38,6 @@ def generate_text(
     prompt: str,
     energy_gate,
     k_multiplier: float = 1.5,
-    search_engine = None,
     max_tokens: int | None = None,
     temperature: float = 0.8,
     top_k: int = 40,
@@ -74,9 +72,6 @@ def generate_text(
     generated_tokens = []
     stop_tokens = stop_tokens or [model.token_eos()]
 
-    cooldown_steps = max(1, search_engine.lookahead_depth // 2) if search_engine else 1
-    cooldown_counter = 0
-
     while len(generated_tokens) < max_tokens:
         logits = model.scores[model.n_tokens - 1]
 
@@ -97,54 +92,9 @@ def generate_text(
         )
         token_energy = energy_gate.energy(logits, generated_tokens, token_id=selected_id)
 
-        # Compute dynamic threshold based on running statistics (mu + k * sigma)
+        # Dynamic threshold from running energy statistics (mu + k * sigma),
+        # kept for observability; decoding itself is fully adaptive-controller driven.
         current_threshold = threshold_tracker.update_and_get_threshold(token_energy)
-
-        search_allowed = cooldown_counter == 0 and search_engine is not None
-
-        if not search_allowed and cooldown_counter > 0:
-            cooldown_counter -= 1
-
-        if search_allowed and should_trigger_search(token_energy, current_threshold):
-            token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
-            print(
-                f"\n🛑 [ADAPTIVE SPIKE DETECTED] Token: {token_str!r} | "
-                f"Energy: {token_energy:.4f} > Threshold (μ + {k_multiplier}σ = {current_threshold:.4f})"
-            )
-            print("Pausing linear decoding, running EGALBS search...")
-
-            search_result = search_engine.run(model, energy_gate, logits, generated_tokens)
-            cooldown_counter = cooldown_steps
-            start_position = model.n_tokens
-            winning_tokens = search_result["winning_tokens"]
-
-            if winning_tokens:
-                model.eval(winning_tokens)
-
-            for i, winning_id in enumerate(winning_tokens):
-                entry = {
-                    "token_position": start_position + i,
-                    "cumulative_tokens": len(generated_tokens) + 1,
-                    "selected_token_id": winning_id,
-                    "selected_token_str": None,
-                    "selected_token_prob": None,
-                    "energy": search_result["winning_token_energies"][i],
-                    "threshold_used": current_threshold,
-                    "source": "search",
-                    "temperature_used": None,
-                    "search_forward_passes": search_result["search_forward_passes"] if i == 0 else 0
-                }
-                trace_data.append(entry)
-                generated_tokens.append(winning_id)
-
-                if winning_id in stop_tokens or len(generated_tokens) >= max_tokens:
-                    break
-
-            print(f"Resuming linear decoding after {len(winning_tokens)} search-injected tokens")
-
-            if generated_tokens and generated_tokens[-1] in stop_tokens:
-                break
-            continue
 
         entry = {
             "token_position": model.n_tokens,

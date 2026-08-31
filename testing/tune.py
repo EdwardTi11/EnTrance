@@ -4,7 +4,7 @@ import re
 from llama_cpp import Llama, llama_model_n_params
 from model_design.engine import generate_text
 from model_design.energy import EnergyProcessor
-from model_design.search import EGALBSSearch
+from model_design.adaptive_control import DecoderController
 from .prompt_config import TUNING_SUITE
 
 mm_module = optunahub.load_module("pruners/multi_metric_pruner")
@@ -42,8 +42,7 @@ def objective(trial):
     k_multiplier = trial.suggest_float("k_multiplier", 1.5, 3.5)
     
     energy_gate = EnergyProcessor(model=model, alpha=alpha, gamma=gamma)
-    search_engine = EGALBSSearch(beam_width=4, lookahead_depth=9)
-
+    
     total_errors = 0
     estimated_flops = 0
     task_results = []
@@ -69,8 +68,7 @@ def objective(trial):
             energy_gate=energy_gate,
             k_multiplier=k_multiplier,
             seed=42,
-            search_engine=search_engine,
-            max_tokens=max_tokens_budget
+                    max_tokens=max_tokens_budget
         )
         
         linear_tokens = sum(1 for entry in trace if entry.get("source") == "linear")
