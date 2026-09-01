@@ -1,7 +1,5 @@
 from llama_cpp import Llama
 from model_design.engine import generate_text
-from model_design.energy import EnergyProcessor
-from model_design.adaptive_control import DecoderController
 
 model_path = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
 
@@ -13,13 +11,9 @@ model = Llama(
     logits_all=True
 )
 
-energy_gate = EnergyProcessor(model=model, alpha=1.2116, gamma=0.8749)
-
 text, trace = generate_text(
     model=model,
     prompt=input("Enter a prompt: "),
-    energy_gate=energy_gate,
-    k_multiplier=2.8360,
     seed=0,
 )
 
