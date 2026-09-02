@@ -10,8 +10,6 @@ from inspect_evals.bigcodebench import bigcodebench
 from inspect_evals.gpqa import gpqa_diamond
 from llama_cpp import Llama
 
-from model_design.energy import EnergyProcessor
-from model_design.search import EGALBSSearch
 from model_design.engine import generate_text
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -22,9 +20,6 @@ DEFAULT_LIMITS = {"aime2025": 30, "gpqa_diamond": 50, "bigcodebench": 40}
 @solver
 def entrance_generation(
     model_instance: Llama,
-    energy_gate: EnergyProcessor,
-    search_engine: EGALBSSearch | None,
-    k_multiplier: float,
     seed: int,
     gen_config: dict[str, Any],
 ):
@@ -34,9 +29,6 @@ def entrance_generation(
         text, _ = generate_text(
             model=model_instance,
             prompt=state.user_prompt.text,
-            energy_gate=energy_gate,
-            k_multiplier=k_multiplier,
-            search_engine=search_engine,
             seed=seed,
             temperature=gen_config["temperature"],
             top_k=gen_config["top_k"],
@@ -96,8 +88,6 @@ def main(argv: list[str] | None = None) -> int:
         verbose=False,
         logits_all=True,
     )
-    energy_gate = EnergyProcessor(model=model, alpha=1.2116, gamma=0.8749)
-    search_engine = EGALBSSearch(beam_width=4, lookahead_depth=9)
     gen_config = {
         "temperature": 0.8,
         "top_k": 40,
@@ -109,9 +99,6 @@ def main(argv: list[str] | None = None) -> int:
         for mode in MODES:
             solver_comp = entrance_generation(
                 model_instance=model,
-                energy_gate=energy_gate,
-                search_engine=search_engine if mode == "entranced" else None,
-                k_multiplier=2.8360,
                 seed=42,
                 gen_config=gen_config,
             )
