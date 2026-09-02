@@ -11,6 +11,7 @@ from inspect_evals.gpqa import gpqa_diamond
 from llama_cpp import Llama
 
 from model_design.engine import generate_text
+from model_design.adaptive_control import DecoderController
 
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
@@ -22,8 +23,8 @@ def entrance_generation(
     model_instance: Llama,
     seed: int,
     gen_config: dict[str, Any],
+    decoder_controller=None,
 ):
-
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         model_instance.reset()
         text, _ = generate_text(
@@ -33,11 +34,10 @@ def entrance_generation(
             temperature=gen_config["temperature"],
             top_k=gen_config["top_k"],
             top_p=gen_config["top_p"],
+            decoder_controller=decoder_controller,
         )
-
         state.output.completion = text
         return state
-
     return solve
 
 def inspect_task(name: str, solver_instance, limit: int) -> Task:
@@ -101,10 +101,12 @@ def main(argv: list[str] | None = None) -> int:
                 model_instance=model,
                 seed=42,
                 gen_config=gen_config,
+                decoder_controller=DecoderController(),
             )
-
-            # Construct task from inspect_evals module
             logs_by_mode[mode] = eval(inspect_task(name, solver_comp, limits[name]))[0]
+        for mode, log in logs_by_mode.items():
+            scores = log.results.scores if log.results else None
+            print(f"{name} [{mode}]: {scores}")
     return 0
 
 if __name__ == "__main__":
