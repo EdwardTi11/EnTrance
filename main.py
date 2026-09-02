@@ -17,4 +17,5 @@ text, trace = generate_text(
     seed=0,
 )
 
+print("\n")
 print(text + "\n")
