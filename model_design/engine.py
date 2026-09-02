@@ -1,4 +1,5 @@
 import numpy as np
+from jinja2 import Template
 from llama_cpp import Llama
 from model_design.adaptive_control import observe, ObserverTracker
 
@@ -34,16 +35,15 @@ def generate_text(
     tracker = ObserverTracker() if decoder_controller else None
 
     messages = [{"role": "user", "content": prompt}]
-    try:
-        handler = getattr(model, "chat_format_handler", None)
-        if not callable(handler):
-            raise AttributeError
-        formatted_prompt = handler(messages=messages)["prompt"]
-    except Exception:
-        formatted_prompt = (
-            f"<|im_start|>user\n{prompt}<|im_end|>\n"
-            f"<|im_start|>assistant\n"
-        )
+
+    tmpl = model.metadata.get("tokenizer.chat_template")
+    if tmpl:
+        # Ensure template is converted from bytes to string if needed
+        tmpl_str = tmpl.decode("utf-8") if isinstance(tmpl, bytes) else tmpl
+        formatted_prompt = Template(tmpl_str).render(messages=messages, add_generation_prompt=True)
+    else:
+        formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
 
     tokens = model.tokenize(formatted_prompt.encode())
     budget = model.n_ctx() - len(tokens) - 4
