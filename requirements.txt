@@ -4,5 +4,3 @@ inspect_ai==0.3.260
 inspect_evals==0.18.0
 llama-cpp-python==0.3.34
 numpy==2.5.1
-optuna==4.9.0
-optunahub==0.4.0
