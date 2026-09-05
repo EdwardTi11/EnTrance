@@ -97,13 +97,17 @@ def main(argv: list[str] | None = None) -> int:
     for name in selected:
         logs_by_mode = {}
         for mode in MODES:
+            controller = DecoderController() if mode == "entranced" else None
             solver_comp = entrance_generation(
                 model_instance=model,
                 seed=42,
                 gen_config=gen_config,
-                decoder_controller=DecoderController(),
+                decoder_controller=controller
             )
-            logs_by_mode[mode] = eval(inspect_task(name, solver_comp, limits[name]))[0]
+            logs_by_mode[mode] = eval(
+                inspect_task(name, solver_comp, limits[name]),
+                max_connections=1,
+            )[0]
         for mode, log in logs_by_mode.items():
             scores = log.results.scores if log.results else None
             print(f"{name} [{mode}]: {scores}")
