@@ -1,173 +1,99 @@
 import numpy as np
+from jinja2 import Template
 from llama_cpp import Llama
-from model_design.search import should_trigger_search
-from model_design.energy import AdaptiveThresholdTracker
-from model_design.adaptive_control import observe, ObserverTracker, DecoderController
+from model_design.adaptive_control import observe, ObserverTracker
 
-def topk_softmax(logits: np.ndarray, k: int):
-    k = min(k, logits.shape[0])
+def topk_softmax(logits, k):
+    k = min(k, len(logits))
     idx = np.argpartition(logits, -k)[-k:]
-    top_logits = logits[idx]
-    order = np.argsort(top_logits)[::-1]
-    idx = idx[order]
-    top_logits = top_logits[order]
-    shifted = top_logits - top_logits[0]
-    exp = np.exp(shifted)
-    return idx, exp / exp.sum()
+    idx = idx[np.argsort(logits[idx])[::-1]]
+    probs = np.exp(logits[idx] - logits[idx[0]])
+    return idx, probs / probs.sum()
 
-def sample_token(logits: np.ndarray, temperature: float, top_k: int, top_p: float,
-                  rng: np.random.Generator, logit_processors=None, prev_tokens=None):
-    if logit_processors:
-        for proc in logit_processors:
-            logits = proc(logits, prev_tokens or [])
+def sample_token(logits, temperature, top_k, top_p, rng):
+    idx, probs = topk_softmax(logits / max(temperature, 1e-6), top_k)
 
-    scaled = logits / max(temperature, 1e-6)
-    idx, probs = topk_softmax(scaled, top_k)
-
-    cum = np.cumsum(probs)
-    cutoff = np.searchsorted(cum, top_p) + 1
+    cutoff = np.searchsorted(np.cumsum(probs), top_p) + 1
     idx, probs = idx[:cutoff], probs[:cutoff]
-    probs = probs / probs.sum()
+    probs /= probs.sum()
 
     choice = rng.choice(len(idx), p=probs)
-    selected_id = int(idx[choice])
-    selected_prob = float(probs[choice])
-    return selected_id, selected_prob
+    return int(idx[choice]), float(probs[choice])
 
 def generate_text(
     model: Llama,
     prompt: str,
-    energy_gate,
-    k_multiplier: float = 1.5,
-    search_engine = None,
-    max_tokens: int | None = None,
-    temperature: float = 0.8,
-    top_k: int = 40,
-    top_p: float = 0.95,
-    stop_tokens: list[int] | None = None,
-    seed: int | None = None,
-    decoder_controller: DecoderController | None = None,
-    acl_window: int | None = None,
+    max_tokens=None,
+    temperature=0.8,
+    top_k=40,
+    top_p=0.95,
+    stop_tokens=None,
+    seed=None,
+    decoder_controller=None,
 ):
     rng = np.random.default_rng(seed)
-
-    threshold_tracker = AdaptiveThresholdTracker(k_multiplier=k_multiplier)
-    observer_tracker = ObserverTracker(window=acl_window) if decoder_controller else None
+    tracker = ObserverTracker() if decoder_controller else None
 
     messages = [{"role": "user", "content": prompt}]
 
-    try:
-        formatted_prompt = model.chat_format_handler(messages=messages)["prompt"]
-    except Exception:
+    tmpl = model.metadata.get("tokenizer.chat_template")
+    if tmpl:
+        # Ensure template is converted from bytes to string if needed
+        tmpl_str = tmpl.decode("utf-8") if isinstance(tmpl, bytes) else tmpl
+        formatted_prompt = Template(tmpl_str).render(messages=messages, add_generation_prompt=True)
+    else:
         formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
-    tokens = model.tokenize(formatted_prompt.encode("utf-8"))
-    remaining_budget = model.n_ctx() - len(tokens) - 4
 
-    if max_tokens is None or max_tokens <= 0:
-        max_tokens = remaining_budget
-    else:
-        max_tokens = min(max_tokens, remaining_budget)
+    tokens = model.tokenize(formatted_prompt.encode())
+    budget = model.n_ctx() - len(tokens) - 4
+    max_tokens = budget if not max_tokens or max_tokens <= 0 else min(max_tokens, budget)
 
     model.eval(tokens)
-    trace_data = []
-    generated_tokens = []
+    generated, trace = [], []
     stop_tokens = stop_tokens or [model.token_eos()]
 
-    cooldown_steps = max(1, search_engine.lookahead_depth // 2) if search_engine else 1
-    cooldown_counter = 0
-
-    while len(generated_tokens) < max_tokens:
+    while len(generated) < max_tokens:
         logits = model.scores[model.n_tokens - 1]
 
-        if decoder_controller is not None:
-            obs = observe(logits)
-            entropy_state = observer_tracker.update(obs)
-            policy = decoder_controller.policy(entropy_state, observer_tracker.warmed_up, top_p, top_k)
-            step_temperature = policy["temperature"]
-            step_top_p = policy["top_p"]
-            step_top_k = policy["top_k"]
-        else:
-            step_temperature = temperature
-            step_top_p = top_p
-            step_top_k = top_k
-
-        selected_id, selected_prob = sample_token(
-            logits, step_temperature, step_top_k, step_top_p, rng, logit_processors=None, prev_tokens=generated_tokens
-        )
-        token_energy = energy_gate.energy(logits, generated_tokens, token_id=selected_id)
-
-        # Compute dynamic threshold based on running statistics (mu + k * sigma)
-        current_threshold = threshold_tracker.update_and_get_threshold(token_energy)
-
-        search_allowed = cooldown_counter == 0 and search_engine is not None
-
-        if not search_allowed and cooldown_counter > 0:
-            cooldown_counter -= 1
-
-        if search_allowed and should_trigger_search(token_energy, current_threshold):
-            token_str = model.detokenize([selected_id]).decode("utf-8", errors="replace")
-            print(
-                f"\n🛑 [ADAPTIVE SPIKE DETECTED] Token: {token_str!r} | "
-                f"Energy: {token_energy:.4f} > Threshold (μ + {k_multiplier}σ = {current_threshold:.4f})"
+        if decoder_controller:
+            assert tracker is not None
+            state = tracker.update(observe(logits))
+            policy = decoder_controller.policy(
+                state, tracker.warmed_up, top_p, top_k
             )
-            print("Pausing linear decoding, running EGALBS search...")
+            temp, step_p, step_k = (
+                policy["temperature"],
+                policy["top_p"],
+                policy["top_k"],
+            )
+        else:
+            temp, step_p, step_k = temperature, top_p, top_k
 
-            search_result = search_engine.run(model, energy_gate, logits, generated_tokens)
-            cooldown_counter = cooldown_steps
-            start_position = model.n_tokens
-            winning_tokens = search_result["winning_tokens"]
+        token_id, prob = sample_token(
+            logits, temp, step_k, step_p, rng
+        )
 
-            if winning_tokens:
-                model.eval(winning_tokens)
-
-            for i, winning_id in enumerate(winning_tokens):
-                entry = {
-                    "token_position": start_position + i,
-                    "cumulative_tokens": len(generated_tokens) + 1,
-                    "selected_token_id": winning_id,
-                    "selected_token_str": None,
-                    "selected_token_prob": None,
-                    "energy": search_result["winning_token_energies"][i],
-                    "threshold_used": current_threshold,
-                    "source": "search",
-                    "temperature_used": None,
-                    "search_forward_passes": search_result["search_forward_passes"] if i == 0 else 0
-                }
-                trace_data.append(entry)
-                generated_tokens.append(winning_id)
-
-                if winning_id in stop_tokens or len(generated_tokens) >= max_tokens:
-                    break
-
-            print(f"Resuming linear decoding after {len(winning_tokens)} search-injected tokens")
-
-            if generated_tokens and generated_tokens[-1] in stop_tokens:
-                break
-            continue
-
-        entry = {
+        trace.append({
             "token_position": model.n_tokens,
-            "cumulative_tokens": len(generated_tokens) + 1,
-            "selected_token_id": selected_id,
-            "selected_token_str": None,
-            "selected_token_prob": selected_prob,
-            "energy": token_energy,
-            "threshold_used": current_threshold,
-            "source": "linear",
-            "temperature_used": step_temperature,
-        }
-        trace_data.append(entry)
-        generated_tokens.append(selected_id)
+            "cumulative_tokens": len(generated) + 1,
+            "selected_token_id": token_id,
+            "selected_token_prob": prob,
+            "temperature_used": temp,
+        })
 
-        if selected_id in stop_tokens:
+        generated.append(token_id)
+
+        if token_id in stop_tokens:
             break
 
-        model.eval([selected_id])
+        model.eval([token_id])
 
-    generated_text = model.detokenize(generated_tokens).decode("utf-8", errors="replace")
+    text = model.detokenize(generated).decode("utf-8", errors="replace")
 
-    for entry in trace_data:
-        entry["selected_token_str"] = model.detokenize([entry["selected_token_id"]]).decode("utf-8", errors="replace")
+    for entry in trace:
+        entry["selected_token_str"] = model.detokenize(
+            [entry["selected_token_id"]]
+        ).decode("utf-8", errors="replace")
 
-    return generated_text, trace_data
+    return text, trace

@@ -274,3 +274,4 @@ EnTrance builds upon:
 -   llama-cpp-python
 -   NumPy
 -   Optuna
+-   Freebuff
