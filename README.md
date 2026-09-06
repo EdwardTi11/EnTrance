@@ -121,7 +121,7 @@ The harness natively supports three complex reasoning benchmarks:
 
 - **AIME 2025**
 - **GPQA Diamond**
-- **BigCodeBench**
+- **Humanity's Last Exam**
 
 To execute the benchmark suite:
 

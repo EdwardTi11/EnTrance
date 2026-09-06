@@ -6,17 +6,17 @@ from inspect_ai import Task, eval
 from inspect_ai.dataset import MemoryDataset
 from inspect_ai.solver import Generate, TaskState, solver
 from inspect_evals.aime2025 import aime2025
-from inspect_evals.bigcodebench import bigcodebench
 from inspect_evals.gpqa import gpqa_diamond
+from inspect_evals.hle import hle
 from llama_cpp import Llama
 
 from model_design.engine import generate_text
 from model_design.adaptive_control import DecoderController
 
 REPO_ROOT = Path(__file__).resolve().parent
-DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
+DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "microsoft_Phi-4-mini-reasoning-Q4_K_M.gguf"
 MODES = ("baseline", "entranced")
-DEFAULT_LIMITS = {"aime2025": 30, "gpqa_diamond": 50, "bigcodebench": 40}
+DEFAULT_LIMITS = {"aime2025": 30, "gpqa_diamond": 50, "hle": 40}
 
 @solver
 def entrance_generation(
@@ -45,9 +45,8 @@ def inspect_task(name: str, solver_instance, limit: int) -> Task:
         task = aime2025()
     elif name == "gpqa_diamond":
         task = gpqa_diamond()
-    elif name == "bigcodebench":
-        # Keep the official scorer; it requires Docker at runtime.
-        task = bigcodebench()
+    elif name == "hle":
+        task = hle()
     else:
         raise ValueError(f"Unknown benchmark: {name}")
     if limit and len(task.dataset) > limit:
@@ -62,14 +61,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--aime-limit", type=int, default=DEFAULT_LIMITS["aime2025"])
     parser.add_argument("--gpqa-limit", type=int, default=DEFAULT_LIMITS["gpqa_diamond"])
-    parser.add_argument("--bcb-limit", type=int, default=DEFAULT_LIMITS["bigcodebench"])
+    parser.add_argument("--hle-limit", type=int, default=DEFAULT_LIMITS["hle"])
 
     args = parser.parse_args(argv)
 
     limits = {
         "aime2025": args.aime_limit,
         "gpqa_diamond": args.gpqa_limit,
-        "bigcodebench": args.bcb_limit,
+        "hle": args.hle_limit,
     }
     if args.limit is not None:
         limits = {name: args.limit for name in limits}
