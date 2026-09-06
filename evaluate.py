@@ -52,7 +52,7 @@ def main() -> int:
 
     for name, task, limit in [
         ("aime2025", aime2025(), None),
-        ("gpqa_diamond", gpqa_diamond(), 50),
+        ("gpqa_diamond", gpqa_diamond(), None),
         # ("hle", hle(), 50),
     ]:
         if limit is not None and len(task.dataset) > limit:
