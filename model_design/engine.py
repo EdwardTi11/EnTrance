@@ -50,12 +50,10 @@ def generate_text(
 
     tmpl = model.metadata.get("tokenizer.chat_template")
     if tmpl:
-        # Ensure template is converted from bytes to string if needed
         tmpl_str = tmpl.decode("utf-8") if isinstance(tmpl, bytes) else tmpl
         formatted_prompt = Template(tmpl_str).render(messages=messages, add_generation_prompt=True)
     else:
         formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
-
 
     tokens = model.tokenize(formatted_prompt.encode())
     budget = model.n_ctx() - len(tokens) - 4

@@ -22,4 +22,3 @@ text, trace = generate_text(
 
 print("\n")
 print(text + "\n")
-print(trace)
