@@ -5,7 +5,7 @@ from inspect_ai.dataset import MemoryDataset
 from inspect_ai.solver import Generate, TaskState, solver
 from inspect_evals.aime2025 import aime2025
 from inspect_evals.gpqa import gpqa_diamond
-from inspect_evals.hle import hle
+# from inspect_evals.hle import hle
 from llama_cpp import Llama
 
 from model_design.engine import generate_text
@@ -53,7 +53,7 @@ def main() -> int:
     for name, task, limit in [
         ("aime2025", aime2025(), None),
         ("gpqa_diamond", gpqa_diamond(), 50),
-        ("hle", hle(), 50),
+        # ("hle", hle(), 50),
     ]:
         if limit is not None and len(task.dataset) > limit:
             task.dataset = MemoryDataset(list(task.dataset)[:limit])
