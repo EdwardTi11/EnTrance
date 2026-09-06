@@ -1,8 +1,6 @@
-import argparse
-from pathlib import Path
 from typing import Any
 
-from inspect_ai import Task, eval
+from inspect_ai import eval
 from inspect_ai.dataset import MemoryDataset
 from inspect_ai.solver import Generate, TaskState, solver
 from inspect_evals.aime2025 import aime2025
@@ -13,9 +11,13 @@ from llama_cpp import Llama
 from model_design.engine import generate_text
 from model_design.adaptive_control import DecoderController
 
-model_path = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-reasoning-Q4_K_M.gguf"
-MODES = ("baseline", "entranced")
-DEFAULT_LIMITS = {"gpqa_diamond": 50, "hle": 50}
+MODEL_PATH = r"C:\Users\etito\Projects\EnTrance\models\Phi-4-mini-reasoning-Q4_K_M.gguf"
+
+GEN_CONFIG = {
+    "temperature": 0.8,
+    "top_k": 40,
+    "top_p": 0.95,
+}
 
 @solver
 def entrance_generation(
@@ -39,69 +41,34 @@ def entrance_generation(
         return state
     return solve
 
-def inspect_task(name: str, solver_instance, limit: int) -> Task:
-    if name == "aime2025":
-        task = aime2025()
-    elif name == "gpqa_diamond":
-        task = gpqa_diamond()
-    elif name == "hle":
-        task = hle()
-    else:
-        raise ValueError(f"Unknown benchmark: {name}")
-    if limit and len(task.dataset) > limit:
-        task.dataset = MemoryDataset(list(task.dataset)[:limit])
-    task.solver = solver_instance
-    return task
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run EnTrance through Inspect AI.")
-    parser.add_argument("--gpqa-limit", type=int, default=DEFAULT_LIMITS["gpqa_diamond"])
-    parser.add_argument("--hle-limit", type=int, default=DEFAULT_LIMITS["hle"])
-
-    args = parser.parse_args(argv)
-
-    limits = {
-        "gpqa_diamond": args.gpqa_limit,
-        "hle": args.hle_limit,
-    }
-    if args.limit is not None:
-        limits = {name: args.limit for name in limits}
-
-    selected = [name.strip() for name in args.benchmarks.split(",") if name.strip()]
-
-    model_path = Path(args.model)
-    if not model_path.exists():
-        print(f"Model not found: {model_path}")
-        return 1
-
+def main() -> int:
     model = Llama(
-        model_path=str(model_path),
+        model_path=MODEL_PATH,
         n_ctx=2048,
         n_threads=4,
         verbose=False,
         logits_all=True,
     )
-    gen_config = {
-        "temperature": 0.8,
-        "top_k": 40,
-        "top_p": 0.95,
-    }
 
-    for name in selected:
-        logs_by_mode = {}
-        for mode in MODES:
+    for name, task, limit in [
+        ("aime2025", aime2025(), None),
+        ("gpqa_diamond", gpqa_diamond(), 50),
+        ("hle", hle(), 50),
+    ]:
+        if limit is not None and len(task.dataset) > limit:
+            task.dataset = MemoryDataset(list(task.dataset)[:limit])
+
+        for mode in ("baseline", "entranced"):
             controller = DecoderController() if mode == "entranced" else None
-            solver_comp = entrance_generation(
+
+            task.solver = entrance_generation(
                 model_instance=model,
                 seed=42,
-                gen_config=gen_config,
-                decoder_controller=controller
+                gen_config=GEN_CONFIG,
+                decoder_controller=controller,
             )
-            logs_by_mode[mode] = eval(
-                inspect_task(name, solver_comp, limits[name]),
-                max_connections=1,
-            )[0]
-        for mode, log in logs_by_mode.items():
+
+            log = eval(task, max_connections=1)[0]
             scores = log.results.scores if log.results else None
             print(f"{name} [{mode}]: {scores}")
     return 0

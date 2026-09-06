@@ -1,7 +1,7 @@
 from llama_cpp import Llama
 from model_design.engine import generate_text
 
-model_path = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-reasoning-Q4_K_M.gguf"
+model_path = r"C:\Users\etito\Projects\EnTrance\models\Phi-4-mini-reasoning-Q4_K_M.gguf"
 
 model = Llama(
     model_path=model_path,
