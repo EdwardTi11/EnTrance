@@ -24,11 +24,12 @@ def entrance_generation(
     model_instance: Llama,
     seed: int,
     gen_config: dict[str, Any],
-    decoder_controller=None,
+    decoder_controller: bool = False,  # Expects True for "entranced", False for "baseline"
 ):
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         model_instance.reset()
-        controller = DecoderController() if decoder_controller is not None else None
+        
+        controller = DecoderController() if decoder_controller else None
         text, _ = generate_text(
             model=model_instance,
             prompt=state.user_prompt.text,
@@ -36,7 +37,7 @@ def entrance_generation(
             temperature=gen_config["temperature"],
             top_k=gen_config["top_k"],
             top_p=gen_config["top_p"],
-            decoder_controller=controller,
+            decoder_controller=controller,  # Pass the fresh instance or None
         )
         state.output.completion = text
         return state
@@ -60,8 +61,6 @@ def main() -> int:
             task.dataset = MemoryDataset(list(task.dataset)[:limit])
 
         for mode in ("baseline", "entranced"):
-            controller = DecoderController() if mode == "entranced" else None
-
             task.solver = entrance_generation(
                 model_instance=model,
                 seed=42,

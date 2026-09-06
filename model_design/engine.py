@@ -33,8 +33,6 @@ def generate_text(
 ):
     rng = np.random.default_rng(seed)
     tracker = ObserverTracker()
-    if decoder_controller is None:
-        decoder_controller = DecoderController()
 
     messages = [{"role": "user", "content": prompt}]
 
