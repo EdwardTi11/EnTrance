@@ -1,7 +1,7 @@
 import numpy as np
 from jinja2 import Template
 from llama_cpp import Llama
-from model_design.adaptive_control import observe, ObserverTracker
+from model_design.adaptive_control import observe, ObserverTracker, DecoderController
 
 def topk_softmax(logits, k):
     k = min(k, len(logits))
@@ -32,7 +32,9 @@ def generate_text(
     decoder_controller=None,
 ):
     rng = np.random.default_rng(seed)
-    tracker = ObserverTracker() if decoder_controller else None
+    tracker = ObserverTracker()
+    if decoder_controller is None:
+        decoder_controller = DecoderController()
 
     messages = [{"role": "user", "content": prompt}]
 
@@ -58,7 +60,8 @@ def generate_text(
 
         if decoder_controller:
             assert tracker is not None
-            state = tracker.update(observe(logits))
+            obs = observe(logits)
+            state = tracker.update(obs)
             policy = decoder_controller.policy(
                 state, tracker.warmed_up, top_p, top_k
             )
@@ -68,6 +71,7 @@ def generate_text(
                 policy["top_k"],
             )
         else:
+            obs, state = {}, {}
             temp, step_p, step_k = temperature, top_p, top_k
 
         token_id, prob = sample_token(
@@ -80,6 +84,10 @@ def generate_text(
             "selected_token_id": token_id,
             "selected_token_prob": prob,
             "temperature_used": temp,
+            "entropy": state.get("entropy"),
+            "entropy_zscore": state.get("entropy_zscore"),
+            "margin": state.get("margin"),
+            "concentration": state.get("concentration"),
         })
 
         generated.append(token_id)
