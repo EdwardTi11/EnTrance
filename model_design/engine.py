@@ -1,22 +1,34 @@
 import numpy as np
 from jinja2 import Template
 from llama_cpp import Llama
-from model_design.adaptive_control import observe, ObserverTracker, DecoderController
+from model_design.adaptive_control import observe, ObserverTracker
 
-def topk_softmax(logits, k):
+def topk_softmax(logits: np.ndarray, k: int):
     k = min(k, len(logits))
     idx = np.argpartition(logits, -k)[-k:]
-    idx = idx[np.argsort(logits[idx])[::-1]]
-    probs = np.exp(logits[idx] - logits[idx[0]])
-    return idx, probs / probs.sum()
+    sub_logits = logits[idx]
+    
+    sort_order = np.argsort(sub_logits)[::-1]
+    sorted_idx = idx[sort_order]
+    sorted_logits = sub_logits[sort_order]
 
-def sample_token(logits, temperature, top_k, top_p, rng):
-    idx, probs = topk_softmax(logits / max(temperature, 1e-6), top_k)
+    exp_logits = np.exp(sorted_logits - sorted_logits[0])
+    probs = exp_logits / exp_logits.sum()
+    
+    return sorted_idx, probs
 
-    cutoff = np.searchsorted(np.cumsum(probs), top_p) + 1
-    idx, probs = idx[:cutoff], probs[:cutoff]
-    probs /= probs.sum()
+def sample_token(logits: np.ndarray, temperature: float, top_k: int, top_p: float, rng: np.random.Generator):
+    scaled_logits = logits / max(temperature, 1e-6)
+    idx, probs = topk_softmax(scaled_logits, top_k)
 
+    if top_p < 0.999:
+        cumsum = np.cumsum(probs)
+        cutoff = min(len(probs), int(np.searchsorted(cumsum, top_p)) + 1)
+        idx, probs = idx[:cutoff], probs[:cutoff]
+        
+        prob_sum = probs.sum()
+        if prob_sum > 0:
+            probs = probs / prob_sum
     choice = rng.choice(len(idx), p=probs)
     return int(idx[choice]), float(probs[choice])
 
