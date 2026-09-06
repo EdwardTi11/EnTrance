@@ -28,6 +28,7 @@ def entrance_generation(
 ):
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         model_instance.reset()
+        controller = DecoderController() if decoder_controller is not None else None
         text, _ = generate_text(
             model=model_instance,
             prompt=state.user_prompt.text,
@@ -35,7 +36,7 @@ def entrance_generation(
             temperature=gen_config["temperature"],
             top_k=gen_config["top_k"],
             top_p=gen_config["top_p"],
-            decoder_controller=decoder_controller,
+            decoder_controller=controller,
         )
         state.output.completion = text
         return state
@@ -44,7 +45,7 @@ def entrance_generation(
 def main() -> int:
     model = Llama(
         model_path=MODEL_PATH,
-        n_ctx=2048,
+        n_ctx=4096,
         n_threads=4,
         verbose=False,
         logits_all=True,
@@ -65,7 +66,7 @@ def main() -> int:
                 model_instance=model,
                 seed=42,
                 gen_config=GEN_CONFIG,
-                decoder_controller=controller,
+                decoder_controller=(mode == "entranced"),
             )
 
             log = eval(task, max_connections=1)[0]
