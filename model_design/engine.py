@@ -1,24 +1,7 @@
-import numpy as np
-from jinja2 import Template
-from llama_cpp import Llama
-from model_design.adaptive_control import observe, ObserverTracker, DecoderController
+from typing import cast, Dict, Any
 
-def topk_softmax(logits, k):
-    k = min(k, len(logits))
-    idx = np.argpartition(logits, -k)[-k:]
-    idx = idx[np.argsort(logits[idx])[::-1]]
-    probs = np.exp(logits[idx] - logits[idx[0]])
-    return idx, probs / probs.sum()
-
-def sample_token(logits, temperature, top_k, top_p, rng):
-    idx, probs = topk_softmax(logits / max(temperature, 1e-6), top_k)
-
-    cutoff = np.searchsorted(np.cumsum(probs), top_p) + 1
-    idx, probs = idx[:cutoff], probs[:cutoff]
-    probs /= probs.sum()
-
-    choice = rng.choice(len(idx), p=probs)
-    return int(idx[choice]), float(probs[choice])
+from llama_cpp import Llama, LogitsProcessorList
+from model_design.adaptive_control import observe, ObserverTracker
 
 def generate_text(
     model: Llama,
@@ -31,77 +14,50 @@ def generate_text(
     seed=None,
     decoder_controller=None,
 ):
-    rng = np.random.default_rng(seed)
     tracker = ObserverTracker()
-    if decoder_controller is None:
-        decoder_controller = DecoderController()
+    trace = []
 
-    messages = [{"role": "user", "content": prompt}]
-
-    tmpl = model.metadata.get("tokenizer.chat_template")
-    if tmpl:
-        # Ensure template is converted from bytes to string if needed
-        tmpl_str = tmpl.decode("utf-8") if isinstance(tmpl, bytes) else tmpl
-        formatted_prompt = Template(tmpl_str).render(messages=messages, add_generation_prompt=True)
-    else:
-        formatted_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
-
-
-    tokens = model.tokenize(formatted_prompt.encode())
-    budget = model.n_ctx() - len(tokens) - 4
-    max_tokens = budget if not max_tokens or max_tokens <= 0 else min(max_tokens, budget)
-
-    model.eval(tokens)
-    generated, trace = [], []
-    stop_tokens = stop_tokens or [model.token_eos()]
-
-    while len(generated) < max_tokens:
-        logits = model.scores[model.n_tokens - 1]
-
+    def adaptive_logits_processor(input_ids, logits):
         if decoder_controller:
-            assert tracker is not None
+            # 1. Compute observation and state update using your adaptive control module
             obs = observe(logits)
             state = tracker.update(obs)
-            policy = decoder_controller.policy(
-                state, tracker.warmed_up, top_p, top_k
-            )
-            temp, step_p, step_k = (
-                policy["temperature"],
-                policy["top_p"],
-                policy["top_k"],
-            )
-        else:
-            obs, state = {}, {}
-            temp, step_p, step_k = temperature, top_p, top_k
+            policy = decoder_controller.policy(state, tracker.warmed_up, top_p, top_k)
+            
+            temp = policy["temperature"]
+            
+            # 2. Scale logits in-place before llama.cpp runs top-k/top-p filtering
+            if temp > 0 and temp != 1.0:
+                logits /= max(temp, 1e-6)
 
-        token_id, prob = sample_token(
-            logits, temp, step_k, step_p, rng
-        )
+            # 3. Record trace metrics
+            trace.append({
+                "cumulative_tokens": len(input_ids),
+                "entropy": state.get("entropy"),
+                "entropy_zscore": state.get("entropy_zscore"),
+                "margin": state.get("margin"),
+                "margin_zscore": state.get("margin_zscore"),
+                "concentration": state.get("concentration"),
+                "concentration_zscore": state.get("concentration_zscore"),
+                "temperature_used": temp,
+            })
+            
+        return logits
 
-        trace.append({
-            "token_position": model.n_tokens,
-            "cumulative_tokens": len(generated) + 1,
-            "selected_token_id": token_id,
-            "selected_token_prob": prob,
-            "temperature_used": temp,
-            "entropy": state.get("entropy"),
-            "entropy_zscore": state.get("entropy_zscore"),
-            "margin": state.get("margin"),
-            "concentration": state.get("concentration"),
-        })
+    logits_processors = LogitsProcessorList([adaptive_logits_processor]) if decoder_controller else None
 
-        generated.append(token_id)
+    response = model.create_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=1.0 if decoder_controller else temperature,
+        top_p=top_p,
+        top_k=top_k,
+        stop=stop_tokens or ["</think>", "<|im_end|>", "</s>"],
+        seed=seed,
+        logits_processor=logits_processors,
+        stream=False,
+    )
 
-        if token_id in stop_tokens:
-            break
-
-        model.eval([token_id])
-
-    text = model.detokenize(generated).decode("utf-8", errors="replace")
-
-    for entry in trace:
-        entry["selected_token_str"] = model.detokenize(
-            [entry["selected_token_id"]]
-        ).decode("utf-8", errors="replace")
-
+    response_dict = cast(Dict[str, Any], response)
+    text = response_dict["choices"][0]["message"]["content"]
     return text, trace
