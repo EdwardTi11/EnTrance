@@ -13,10 +13,9 @@ from llama_cpp import Llama
 from model_design.engine import generate_text
 from model_design.adaptive_control import DecoderController
 
-REPO_ROOT = Path(__file__).resolve().parent
-DEFAULT_MODEL_PATH = REPO_ROOT / "models" / "microsoft_Phi-4-mini-reasoning-Q4_K_M.gguf"
+model_path = r"C:\Users\etito\Projects\EnTrance\models\microsoft_Phi-4-mini-reasoning-Q4_K_M.gguf"
 MODES = ("baseline", "entranced")
-DEFAULT_LIMITS = {"aime2025": 30, "gpqa_diamond": 50, "hle": 40}
+DEFAULT_LIMITS = {"gpqa_diamond": 50, "hle": 50}
 
 @solver
 def entrance_generation(
@@ -56,17 +55,12 @@ def inspect_task(name: str, solver_instance, limit: int) -> Task:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run EnTrance through Inspect AI.")
-    parser.add_argument("--model", default=str(DEFAULT_MODEL_PATH))
-    parser.add_argument("--benchmarks", default=",".join(DEFAULT_LIMITS))
-    parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--aime-limit", type=int, default=DEFAULT_LIMITS["aime2025"])
     parser.add_argument("--gpqa-limit", type=int, default=DEFAULT_LIMITS["gpqa_diamond"])
     parser.add_argument("--hle-limit", type=int, default=DEFAULT_LIMITS["hle"])
 
     args = parser.parse_args(argv)
 
     limits = {
-        "aime2025": args.aime_limit,
         "gpqa_diamond": args.gpqa_limit,
         "hle": args.hle_limit,
     }
