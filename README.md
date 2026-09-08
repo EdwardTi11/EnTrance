@@ -4,7 +4,7 @@
 
 **EnTrance** is an inference-time decoding framework that monitors a language model's token distribution at every decoding step to dynamically adapt the sampling temperature on the fly.
 
-Instead of applying a rigid, fixed temperature across an entire generation, EnTrance tracks the model's normalized entropy against a rolling historical window. It automatically lowers temperature when the model is confident and raises it when the model encounters complex, ambiguous branching points.
+Instead of applying a rigid, fixed temperature across an entire generation, EnTrance tracks the model's normalized entropy using an incremental Exponential Moving Average (EMA). It automatically lowers temperature when the model is confident and raises it when the model encounters complex, ambiguous branching points.
 
 The implementation runs directly on model logits using `llama.cpp` and `llama-cpp-python`.
 
@@ -12,17 +12,17 @@ The implementation runs directly on model logits using `llama.cpp` and `llama-cp
 
 ## 💡 Core Concept
 
-At each generation step, EnTrance hooks into the model's logit outputs and observes three core distribution properties:
+At each generation step, EnTrance hooks into the model's logit outputs and observes core distribution properties:
 
-- **Entropy:** How broadly probability is scattered across the vocabulary.
-- **Margin:** The delta between the top two highest logits.
-- **Top-k Concentration:** The collective probability mass contained in the top k tokens.
+- **Entropy:** How broadly probability is scattered across the full vocabulary.
+- **Margin:** The gap between the top-1 and top-2 logits ($p_{\text{top1}} - p_{\text{top2}}$).
+- **Min-P Candidate Dynamics:** The candidate token count (`min_p_count`) and cumulative probability mass (`min_p_mass`) surviving the dynamic `min_p` cutoff ($p \ge \text{min\_p} \times p_{\text{max}}$).
 
 ```text
-logits ──> probability distribution ──> observations ──> adaptive policy ──> sampling
+logits ──> probability distribution ──> observations ──> EMA tracker ──> adaptive policy ──> sampling
 ```
 
-By calculating an **entropy z-score** against a rolling history window (default: 64 steps), the system continuously tunes the temperature:
+By calculating an **entropy z-score** via a streaming Exponential Moving Average (EMA) ($O(1)$ constant memory and time updates), the system continuously tunes the temperature:
 
 - **High Entropy (z > 0):** Unusually high uncertainty → **Higher Temperature** (encourages exploration).
 - **Low Entropy (z < 0):** High model confidence → **Lower Temperature** (encourages precision).
@@ -46,7 +46,7 @@ By calculating an **entropy z-score** against a rolling history window (default:
                                                    └────────┬────────┘
                                                             │
                                                             ▼
-                                                    Rolling History
+                                                  Streaming EMA Tracker
                                                    (Entropy z-score)
                                                             │
                                                             ▼
@@ -68,6 +68,7 @@ By calculating an **entropy z-score** against a rolling history window (default:
 
 ```text
 EnTrance/
+├── logs/ # Results from benchmarks from evaluate.py
 ├── model_design/
 │   ├── adaptive_control.py  # Metrics tracking & z-score temperature scaling
 │   └── engine.py            # Token-by-token generation & custom sampler
