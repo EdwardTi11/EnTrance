@@ -15,8 +15,7 @@ MODEL_PATH = r"C:\Users\etito\Projects\EnTrance\models\Phi-4-mini-reasoning-Q4_K
 
 GEN_CONFIG = {
     "temperature": 0.8,
-    "top_k": 40,
-    "top_p": 0.95,
+    "min_p": 0.05,
 }
 
 @solver
@@ -35,8 +34,7 @@ def entrance_generation(
             prompt=state.user_prompt.text,
             seed=seed,
             temperature=gen_config["temperature"],
-            top_k=gen_config["top_k"],
-            top_p=gen_config["top_p"],
+            min_p=gen_config["min_p"],
             decoder_controller=controller,  # Pass the fresh instance or None
         )
         state.output.completion = text
