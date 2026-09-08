@@ -8,8 +8,7 @@ def generate_text(
     prompt: str,
     max_tokens=None,
     temperature=0.8,
-    top_k=40,
-    top_p=0.95,
+    min_p=0.05,
     stop_tokens=None,
     seed=None,
     decoder_controller=None,
@@ -19,18 +18,14 @@ def generate_text(
 
     def adaptive_logits_processor(input_ids, logits):
         if decoder_controller:
-            # 1. Compute observation and state update using your adaptive control module
             obs = observe(logits)
             state = tracker.update(obs)
-            policy = decoder_controller.policy(state, tracker.warmed_up, top_p, top_k)
+            policy = decoder_controller.policy(state, tracker.warmed_up)
             
             temp = policy["temperature"]
-            
-            # 2. Scale logits in-place before llama.cpp runs top-k/top-p filtering
             if temp > 0 and temp != 1.0:
                 logits /= max(temp, 1e-6)
 
-            # 3. Record trace metrics
             trace.append({
                 "cumulative_tokens": len(input_ids),
                 "entropy": state.get("entropy"),
@@ -50,8 +45,9 @@ def generate_text(
         messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
         temperature=1.0 if decoder_controller else temperature,
-        top_p=top_p,
-        top_k=top_k,
+        min_p=min_p,
+        top_p=1.0,
+        top_k=0,
         stop=stop_tokens or ["</think>", "<|im_end|>", "</s>"],
         seed=seed,
         logits_processor=logits_processors,
