@@ -16,7 +16,7 @@ At each generation step, EnTrance hooks into the model's logit outputs and obser
 
 - **Entropy:** How broadly probability is scattered across the full vocabulary.
 - **Margin:** The gap between the top-1 and top-2 logits ($p_{\text{top1}} - p_{\text{top2}}$).
-- **Min-P Candidate Dynamics:** The candidate token count (`min_p_count`) and cumulative probability mass (`min_p_mass`) surviving the dynamic `min_p` cutoff ($p \ge \text{min\_p} \times p_{\text{max}}$).
+- **Min-P Candidate Dynamics:** The candidate token count (`min_p_count`) and cumulative probability mass (`min_p_mass`) surviving the dynamic `min_p` cutoff $(p \ge \mathtt{min\_p} \times p_{\mathtt{max}})$
 
 ```text
 logits ──> probability distribution ──> observations ──> EMA tracker ──> adaptive policy ──> sampling
