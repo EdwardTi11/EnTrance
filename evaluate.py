@@ -42,23 +42,24 @@ def entrance_generation(
     return solve
 
 def main() -> int:
-    model = Llama(
-        model_path=MODEL_PATH,
-        n_ctx=4096,
-        n_threads=4,
-        verbose=False,
-        logits_all=True,
-    )
-
-    for name, task, limit in [
+    tasks = [
         ("aime2025", aime2025(), None),
         ("gpqa_diamond", gpqa_diamond(), None),
-        # ("hle", hle(), 50),
-    ]:
-        if limit is not None and len(task.dataset) > limit:
+    ]
+
+    for name, task, limit in tasks:
+        if limit and len(task.dataset) > limit:
             task.dataset = MemoryDataset(list(task.dataset)[:limit])
 
         for mode in ("baseline", "entranced"):
+            model = Llama(
+                model_path=MODEL_PATH,
+                n_ctx=4096,
+                n_threads=4,
+                verbose=False,
+                logits_all=True,
+            )
+
             task.solver = entrance_generation(
                 model_instance=model,
                 seed=42,
@@ -69,6 +70,7 @@ def main() -> int:
             log = eval(task, max_connections=1)[0]
             scores = log.results.scores if log.results else None
             print(f"{name} [{mode}]: {scores}")
+            del model
     return 0
 
 if __name__ == "__main__":
