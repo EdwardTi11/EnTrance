@@ -9,7 +9,7 @@ model = Llama(
     n_ctx=2048,
     n_threads=4,
     verbose=False,
-    logits_all=True
+    logits_all=False
 )
 decoder_controller = DecoderController()
 

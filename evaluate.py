@@ -57,7 +57,7 @@ def main() -> int:
                 n_ctx=4096,
                 n_threads=4,
                 verbose=False,
-                logits_all=True,
+                logits_all=False,
             )
 
             task.solver = entrance_generation(
