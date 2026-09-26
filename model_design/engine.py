@@ -30,10 +30,6 @@ def generate_text(
                 "cumulative_tokens": len(input_ids),
                 "entropy": state.get("entropy"),
                 "entropy_zscore": state.get("entropy_zscore"),
-                "margin": state.get("margin"),
-                "margin_zscore": state.get("margin_zscore"),
-                "concentration": state.get("concentration"),
-                "concentration_zscore": state.get("concentration_zscore"),
                 "temperature_used": temp,
             })
             
@@ -56,4 +52,19 @@ def generate_text(
 
     response_dict = cast(Dict[str, Any], response)
     text = response_dict["choices"][0]["message"]["content"]
-    return text, trace
+
+    usage = response_dict.get("usage", {})
+    prompt_tokens = usage.get("prompt_tokens", 0)
+    completion_tokens = usage.get("completion_tokens", 0)
+    total_tokens = usage.get("total_tokens", 0)
+
+    trace_summary = {
+        "token_usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+        },
+        "step_trace": trace,  # Your step-by-step logits processor trace
+    }
+
+    return text, trace_summary

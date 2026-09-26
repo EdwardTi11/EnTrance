@@ -29,7 +29,7 @@ def entrance_generation(
         model_instance.reset()
         
         controller = DecoderController() if decoder_controller else None
-        text, _ = generate_text(
+        text, token_stats = generate_text(
             model=model_instance,
             prompt=state.user_prompt.text,
             seed=seed,
@@ -38,16 +38,18 @@ def entrance_generation(
             decoder_controller=controller,  # Pass the fresh instance or None
         )
         state.output.completion = text
+        state.metadata["usage"] = token_stats["token_usage"]
+
         return state
     return solve
 
 def main() -> int:
     tasks = [
-        ("aime2025", aime2025(), None),
-        ("gpqa_diamond", gpqa_diamond(), None),
+        (aime2025(), 1),
+        # (gpqa_diamond(), None),
     ]
 
-    for name, task, limit in tasks:
+    for task, limit in tasks:
         if limit and len(task.dataset) > limit:
             task.dataset = MemoryDataset(list(task.dataset)[:limit])
 
@@ -69,7 +71,7 @@ def main() -> int:
 
             log = eval(task, max_connections=1)[0]
             scores = log.results.scores if log.results else None
-            print(f"{name} [{mode}]: {scores}")
+            print(f"{mode.upper()}: {scores}")
             del model
     return 0
 

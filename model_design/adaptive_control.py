@@ -14,20 +14,9 @@ def observe(logits: np.ndarray, min_p: float = 0.05) -> dict:
     top_two = np.partition(logits, -2)[-2:]
     margin = float(top_two[1] - top_two[0])
 
-    # --- Native Min-P Candidate Metrics ---
-    p_max = float(probs.max())
-    cutoff = min_p * p_max
-    
-    active_mask = probs >= cutoff
-    min_p_count = int(np.sum(active_mask))
-    min_p_mass = float(probs[active_mask].sum())
-
     return {
         "entropy": entropy,
         "margin": margin,
-        "p_max": p_max,
-        "min_p_count": min_p_count,
-        "min_p_mass": min_p_mass,
     }
 
 class ObserverTracker:
@@ -58,9 +47,6 @@ class ObserverTracker:
             "entropy": x,
             "entropy_zscore": z_score,
             "margin": obs["margin"],
-            "p_max": obs["p_max"],
-            "min_p_count": obs["min_p_count"],
-            "min_p_mass": obs["min_p_mass"],
         }
 
     @property
