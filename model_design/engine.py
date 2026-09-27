@@ -44,7 +44,7 @@ def generate_text(
         min_p=min_p,
         top_p=1.0,
         top_k=0,
-        stop=stop_tokens or ["</think>", "<|im_end|>", "</s>"],
+        stop=stop_tokens or None,
         seed=seed,
         logits_processor=logits_processors,
         stream=False,
@@ -54,17 +54,13 @@ def generate_text(
     text = response_dict["choices"][0]["message"]["content"]
 
     usage = response_dict.get("usage", {})
-    prompt_tokens = usage.get("prompt_tokens", 0)
-    completion_tokens = usage.get("completion_tokens", 0)
-    total_tokens = usage.get("total_tokens", 0)
-
     trace_summary = {
         "token_usage": {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens,
+            "prompt_tokens": usage.get("prompt_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "total_tokens": usage.get("total_tokens", 0),
         },
-        "step_trace": trace,  # Your step-by-step logits processor trace
+        "step_trace": trace,
     }
 
     return text, trace_summary

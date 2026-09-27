@@ -5,7 +5,6 @@ from inspect_ai.dataset import MemoryDataset
 from inspect_ai.solver import Generate, TaskState, solver
 from inspect_evals.aime2025 import aime2025
 from inspect_evals.gpqa import gpqa_diamond
-# from inspect_evals.hle import hle
 from llama_cpp import Llama
 
 from model_design.engine import generate_text
@@ -45,8 +44,8 @@ def entrance_generation(
 
 def main() -> int:
     tasks = [
-        (aime2025(), 1),
-        # (gpqa_diamond(), None),
+        (aime2025(), None),
+        (gpqa_diamond(), None),
     ]
 
     for task, limit in tasks:

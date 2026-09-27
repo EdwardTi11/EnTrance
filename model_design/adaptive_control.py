@@ -10,14 +10,7 @@ def observe(logits: np.ndarray, min_p: float = 0.05) -> dict:
     # Full-vocabulary normalized entropy
     entropy = float(-np.sum(probs * np.log(probs + 1e-12)) / np.log(len(logits)))
 
-    # Logit margin (Top 1 vs Top 2 gap)
-    top_two = np.partition(logits, -2)[-2:]
-    margin = float(top_two[1] - top_two[0])
-
-    return {
-        "entropy": entropy,
-        "margin": margin,
-    }
+    return {"entropy": entropy}
 
 class ObserverTracker:
     def __init__(self, alpha: float = 0.05):
@@ -46,7 +39,6 @@ class ObserverTracker:
         return {
             "entropy": x,
             "entropy_zscore": z_score,
-            "margin": obs["margin"],
         }
 
     @property
