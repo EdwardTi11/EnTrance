@@ -1,3 +1,4 @@
+import random
 import os
 from typing import Any
 
@@ -24,7 +25,7 @@ def entrance_generation(
     model_instance: Llama,
     seed: int,
     gen_config: dict[str, Any],
-    decoder_controller: bool = False,  # Expects True for "entranced", False for "baseline"
+    decoder_controller: bool = False,  # True for "entranced", False for "baseline"
 ):
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         model_instance.reset()
@@ -37,24 +38,35 @@ def entrance_generation(
             temperature=gen_config["temperature"],
             min_p=gen_config["min_p"],
             max_tokens=gen_config["max_tokens"],
-            decoder_controller=controller,  # Pass the fresh instance or None
+            decoder_controller=controller,
         )
         state.output.completion = text
-        state.metadata["usage"] = token_stats["token_usage"]
+        state.metadata["usage"] = token_stats.get("token_usage", {})
 
         return state
     return solve
 
 def main() -> int:
     tasks = [
-        (aime2025(), None),
-        (gpqa_diamond(), None),
+        ("AIME 2025", aime2025(), 10),
+        ("GPQA Diamond", gpqa_diamond(), 10),
     ]
     cpu_count = os.cpu_count() or 4
 
-    for task, limit in tasks:
-        if limit and len(task.dataset) > limit:
-            task.dataset = MemoryDataset(list(task.dataset)[:limit])
+    for task_name, task, limit in tasks:
+        dataset_samples = list(task.dataset)
+        
+        random.seed(42)
+        random.shuffle(dataset_samples)
+        
+        if limit and len(dataset_samples) > limit:
+            dataset_samples = dataset_samples[:limit]
+            
+        task.dataset = MemoryDataset(dataset_samples)
+
+        print(f"\n==============================")
+        print(f"Benchmark Suite: {task_name} (Shuffled, {len(task.dataset)} samples)")
+        print(f"==============================")
 
         for mode in ("baseline", "entranced"):
             model = Llama(
@@ -72,10 +84,27 @@ def main() -> int:
                 decoder_controller=(mode == "entranced"),
             )
 
-            log = eval(task, max_connections=1)[0]
-            scores = log.results.scores if log.results else None
-            print(f"{mode.upper()}: {scores}")
+            log = eval(task, max_connections=1, display="none")[0]
+            
+            total_prompt_tokens = 0
+            total_completion_tokens = 0
+            sample_count = len(log.samples) if log.samples else 0
+
+            if log.samples:
+                for sample in log.samples:
+                    usage = sample.metadata.get("usage", {})
+                    total_prompt_tokens += usage.get("prompt_tokens", 0)
+                    total_completion_tokens += usage.get("completion_tokens", 0)
+
+            avg_completion = total_completion_tokens / sample_count if sample_count > 0 else 0
+
+            print(f"[{mode.upper()}] Processed {sample_count} samples:")
+            print(f"  - Total Prompt Tokens: {total_prompt_tokens}")
+            print(f"  - Total Completion Tokens: {total_completion_tokens}")
+            print(f"  - Avg Completion Tokens / Sample: {avg_completion:.2f}")
+
             del model
+            
     return 0
 
 if __name__ == "__main__":
