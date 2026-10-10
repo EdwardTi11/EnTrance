@@ -15,6 +15,7 @@ MODEL_PATH = r"C:\Users\etito\Projects\EnTrance\models\Phi-4-mini-reasoning-Q4_K
 GEN_CONFIG = {
     "temperature": 0.8,
     "min_p": 0.05,
+    "max_tokens": 4096,
 }
 
 @solver
@@ -34,6 +35,7 @@ def entrance_generation(
             seed=seed,
             temperature=gen_config["temperature"],
             min_p=gen_config["min_p"],
+            max_tokens=gen_config["max_tokens"],
             decoder_controller=controller,  # Pass the fresh instance or None
         )
         state.output.completion = text
@@ -55,7 +57,7 @@ def main() -> int:
         for mode in ("baseline", "entranced"):
             model = Llama(
                 model_path=MODEL_PATH,
-                n_ctx=4096,
+                n_ctx=8192,
                 n_threads=4,
                 verbose=False,
                 logits_all=False,

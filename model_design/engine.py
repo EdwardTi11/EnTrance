@@ -1,5 +1,4 @@
 from typing import cast, Dict, Any
-
 from llama_cpp import Llama, LogitsProcessorList
 from model_design.adaptive_control import observe, ObserverTracker
 
@@ -9,7 +8,6 @@ def generate_text(
     max_tokens=None,
     temperature=0.8,
     min_p=0.05,
-    stop_tokens=None,
     seed=None,
     decoder_controller=None,
 ):
@@ -44,7 +42,7 @@ def generate_text(
         min_p=min_p,
         top_p=1.0,
         top_k=0,
-        stop=stop_tokens or None,
+        stop=None, 
         seed=seed,
         logits_processor=logits_processors,
         stream=False,
