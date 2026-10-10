@@ -1,13 +1,17 @@
+import os
+
 from llama_cpp import Llama
 from model_design.engine import generate_text
 from model_design.adaptive_control import DecoderController
 
 model_path = r"C:\Users\etito\Projects\EnTrance\models\Phi-4-mini-reasoning-Q4_K_M.gguf"
 
+cpu_count = os.cpu_count() or 4
+
 model = Llama(
     model_path=model_path,
     n_ctx=2048,
-    n_threads=4,
+    n_threads=(cpu_count // 2),
     verbose=False,
     logits_all=False
 )

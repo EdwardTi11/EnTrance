@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 from inspect_ai import eval
@@ -49,6 +50,7 @@ def main() -> int:
         (aime2025(), None),
         (gpqa_diamond(), None),
     ]
+    cpu_count = os.cpu_count() or 4
 
     for task, limit in tasks:
         if limit and len(task.dataset) > limit:
@@ -58,7 +60,7 @@ def main() -> int:
             model = Llama(
                 model_path=MODEL_PATH,
                 n_ctx=8192,
-                n_threads=4,
+                n_threads=(cpu_count // 2),
                 verbose=False,
                 logits_all=False,
             )
