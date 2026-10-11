@@ -68,15 +68,15 @@ def main() -> int:
         print(f"Benchmark Suite: {task_name} (Shuffled, {len(task.dataset)} samples)")
         print(f"==============================")
 
-        for mode in ("baseline", "entranced"):
-            model = Llama(
-                model_path=MODEL_PATH,
-                n_ctx=8192,
-                n_threads=(CPU_COUNT // 2),
-                verbose=False,
-                logits_all=False,
-            )
+        model = Llama(
+            model_path=MODEL_PATH,
+            n_ctx=8192,
+            n_threads=(CPU_COUNT // 2),
+            verbose=False,
+            logits_all=False,
+        )
 
+        for mode in ("baseline", "entranced"):
             task.solver = entrance_generation(
                 model_instance=model,
                 seed=42,
