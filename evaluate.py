@@ -12,7 +12,8 @@ from llama_cpp import Llama
 from model_design.engine import generate_text
 from model_design.adaptive_control import DecoderController
 
-MODEL_PATH = r"C:\Users\etito\Projects\EnTrance\models\Phi-4-mini-reasoning-Q4_K_M.gguf"
+MODEL_PATH = os.getenv("MODEL_PATH", os.path.join("models", "Phi-4-mini-reasoning-Q4_K_M.gguf"))
+CPU_COUNT = os.cpu_count() or 4
 
 GEN_CONFIG = {
     "temperature": 0.8,
@@ -51,7 +52,6 @@ def main() -> int:
         ("AIME 2025", aime2025(), 10),
         ("GPQA Diamond", gpqa_diamond(), 10),
     ]
-    cpu_count = os.cpu_count() or 4
 
     for task_name, task, limit in tasks:
         dataset_samples = list(task.dataset)
@@ -72,7 +72,7 @@ def main() -> int:
             model = Llama(
                 model_path=MODEL_PATH,
                 n_ctx=8192,
-                n_threads=(cpu_count // 2),
+                n_threads=(CPU_COUNT // 2),
                 verbose=False,
                 logits_all=False,
             )
