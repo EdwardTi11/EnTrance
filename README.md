@@ -133,6 +133,35 @@ python evaluate.py
 
 ---
 
+## 📈 Results
+
+Initial evaluation compared fixed-parameter **Baseline** decoding with **EnTrance** (entropy-adaptive temperature) on shuffled samples from AIME 2025 and GPQA Diamond.
+
+### Completion-token usage
+
+| Benchmark | Mode | Samples processed (reported) | Total completion tokens | Avg. completion tokens / sample |
+|---|---|---:|---:|---:|
+| AIME 2025 | Baseline | 10 | 40,390 | 4,039.0 |
+| AIME 2025 | EnTrance | 10 | 40,522 | 4,052.2 |
+| GPQA Diamond | Baseline | 40 | 142,944 | 3,573.6 |
+| GPQA Diamond | EnTrance | 40 | 145,432 | 3,635.8 |
+
+### Constraints
+
+Evaluations were run locally on vanilla llama.cpp using CPU thread-pooling without hardware acceleration (such as CUDA or Vulkan). The resulting computational bottlenecks and latency constraints limited the sample sizes per benchmark during this initial prototyping phase.
+
+### Observations
+
+- **AIME 2025:** EnTrance generated 132 more completion tokens overall, an increase of approximately **0.33%** over the baseline. Average completion length increased by **13.2 tokens per sample**.
+- **GPQA Diamond:** EnTrance generated 2,488 more completion tokens overall, an increase of approximately **1.74%** over the baseline. Average completion length increased by **62.2 tokens per sample**.
+- **Prompt-token usage was unchanged** between modes in both reported runs: 2,432 tokens for AIME 2025 and 5,160 tokens for GPQA Diamond.
+
+These initial results show that adaptive decoding used slightly more completion tokens on both benchmarks. **They do not establish an improvement or regression in answer quality**: accuracy, benchmark scores, latency, and computational cost were not included in the supplied output. Those metrics should be reported in future comparisons before drawing conclusions about reasoning performance or efficiency.
+
+> **Reporting note:** The GPQA section header says “10 samples,” while the run output reports 40 samples processed. Inspect AI runs the model through GPQA questions in 4 epochs for each question. The table uses the processed count reported by the output;
+
+---
+
 ## 🎯 Scope Limitations
 
 EnTrance operates entirely via **local logit manipulation on token-by-token processing loops**.
