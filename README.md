@@ -15,14 +15,14 @@ The implementation runs directly on model logits using `llama.cpp` and `llama-cp
 At each generation step, EnTrance hooks into the model's logit outputs and observes core distribution properties:
 
 - **Entropy:** How broadly probability is scattered across the full vocabulary.
-- **Margin:** The gap between the top-1 and top-2 logits ($p_{\text{top1}} - p_{\text{top2}}$).
-- **Min-P Candidate Dynamics:** The candidate token count (`min_p_count`) and cumulative probability mass (`min_p_mass`) surviving the dynamic `min_p` cutoff $(p \ge \mathtt{min\_p} \times p_{\mathtt{max}})$
+- **Margin:** The gap between the top-1 and top-2 logits (\(p_{\text{top1}} - p_{\text{top2}}\)).
+- **Min-P Candidate Dynamics:** The candidate token count (`min_p_count`) and cumulative probability mass (`min_p_mass`) surviving the dynamic `min_p` cutoff \((p \ge \mathtt{min\_p} \times p_{\mathtt{max}})\)
 
 ```text
 logits ──> probability distribution ──> observations ──> EMA tracker ──> adaptive policy ──> sampling
 ```
 
-By calculating an **entropy z-score** via a streaming Exponential Moving Average (EMA) ($O(1)$ constant memory and time updates), the system continuously tunes the temperature:
+By calculating an **entropy z-score** via a streaming Exponential Moving Average (EMA) (O(1) constant memory and time updates), the system continuously tunes the temperature:
 
 - **High Entropy (z > 0):** Unusually high uncertainty → **Higher Temperature** (encourages exploration).
 - **Low Entropy (z < 0):** High model confidence → **Lower Temperature** (encourages precision).
@@ -68,14 +68,18 @@ By calculating an **entropy z-score** via a streaming Exponential Moving Average
 
 ```text
 EnTrance/
-├── logs/ # Results from benchmarks from evaluate.py
+├── logs/                    # Results from benchmarks from evaluate.py
 ├── model_design/
 │   ├── adaptive_control.py  # Metrics tracking & z-score temperature scaling
 │   └── engine.py            # Token-by-token generation & custom sampler
-├── main.py                  # Interactive CLI chat interface
-├── evaluate.py              # Benchmark runner (Inspect AI)
 ├── models/                  # Local GGUF model storage
-└── requirements.txt         # Dependencies
+├── .gitignore
+├── evaluate.py              # Benchmark runner (Inspect AI)
+├── LICENSE                  # MIT License
+├── main.py                  # Interactive CLI chat interface
+├── pyproject.toml           # Project metadata & dependencies
+├── README.md
+└── uv.lock                  # Reproducible dependency lockfile
 ```
 
 ---
@@ -84,16 +88,18 @@ EnTrance/
 
 ### 1. Prerequisites & Installation
 
-Ensure you have your C++ compilers set up properly for `llama-cpp-python` compilation acceleration (CUDA, Metal, etc.).
+Ensure you have [uv](https://astral.sh) installed, along with C++ compilers set up properly if building `llama-cpp-python` with hardware acceleration (CUDA, Metal, etc.).
 
 ```bash
 # Clone the repository
 git clone https://github.com
 cd EnTrance
 
-# Install dependencies
-pip install -r requirements.txt
+# Create a virtual environment and install dependencies from uv.lock
+uv sync
 ```
+
+*(Optional)* To build `llama-cpp-python` with hardware acceleration before or during sync, pass `CMAKE_ARGS` (for example, `CMAKE_ARGS="-DGGML_CUDA=on" uv sync` or `CMAKE_ARGS="-DGGML_METAL=on" uv sync`).
 
 ### 2. Download a Model
 
@@ -109,7 +115,7 @@ mkdir -p models/
 Test the adaptive decoding framework natively via the command line interface:
 
 ```bash
-python main.py
+uv run python main.py
 ```
 
 ---
@@ -118,7 +124,7 @@ python main.py
 
 EnTrance features a robust evaluation framework powered by **Inspect AI** to compare standard fixed-parameter decoding (Baseline) against entropy-adaptive decoding.
 
-The harness natively supports three complex reasoning benchmarks:
+The harness natively supports two complex reasoning benchmarks:
 
 - **AIME 2025**
 - **GPQA Diamond**
@@ -126,7 +132,7 @@ The harness natively supports three complex reasoning benchmarks:
 To execute the benchmark suite:
 
 ```bash
-python evaluate.py
+uv run python evaluate.py
 ```
 
 *Note: The model is programmatically reset before every single evaluation generation snippet to guarantee unbiased data states.*
@@ -158,7 +164,7 @@ Evaluations were run locally on vanilla llama.cpp using CPU thread-pooling witho
 
 These initial results show that adaptive decoding used slightly more completion tokens on both benchmarks. **They do not establish an improvement or regression in answer quality**: accuracy, benchmark scores, latency, and computational cost were not included in the supplied output. Those metrics should be reported in future comparisons before drawing conclusions about reasoning performance or efficiency.
 
-> **Reporting note:** The GPQA section header says “10 samples,” while the run output reports 40 samples processed. Inspect AI runs the model through GPQA questions in 4 epochs for each question. The table uses the processed count reported by the output;
+> **Reporting note:** The GPQA section header says “10 samples,” while the run output reports 40 samples processed. Inspect AI runs the model through GPQA questions in 4 epochs for each question. The table uses the processed count reported by the output.
 
 ---
 
@@ -181,7 +187,5 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 
 EnTrance sits on top of exceptional open-source ecosystems:
 
-- [**llama.cpp**](https://github.com/ggerganov/llama.cpp) & [**llama-cpp-python**](https://github.com/abetlen/llama-cpp-python)
-- [**Inspect AI**](https://github.com/UKGovernmentBEIS/inspect_ai) by the UK AI Safety Institute
-
----
+- [**llama.cpp**](https://github.com) & [**llama-cpp-python**](https://github.com/abetlen/llama-cpp-python)
+- [**Inspect AI**](https://github.com)
