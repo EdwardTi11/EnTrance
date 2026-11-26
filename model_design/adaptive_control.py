@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-def observe(logits: np.ndarray, min_p: float = 0.05) -> dict:
+def observe(logits: np.ndarray) -> dict:
     # Numerically stable softmax
     shifted = logits - np.max(logits)
     exp = np.exp(shifted)
