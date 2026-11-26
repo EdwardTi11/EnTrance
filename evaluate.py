@@ -49,19 +49,16 @@ def entrance_generation(
 
 def main() -> int:
     tasks = [
-        ("AIME 2025", aime2025(), 10),
-        ("GPQA Diamond", gpqa_diamond(), 10),
+        ("AIME 2025", aime2025()),
+        ("GPQA Diamond", gpqa_diamond(cot=False, epochs=1))
     ]
 
-    for task_name, task, limit in tasks:
+    for task_name, task in tasks:
+        task.epochs = 1
         dataset_samples = list(task.dataset)
         
         random.seed(42)
         random.shuffle(dataset_samples)
-        
-        if limit and len(dataset_samples) > limit:
-            dataset_samples = dataset_samples[:limit]
-            
         task.dataset = MemoryDataset(dataset_samples)
 
         print(f"\n==============================")
