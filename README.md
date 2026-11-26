@@ -88,7 +88,7 @@ Ensure you have [uv](https://astral.sh) installed, along with C++ compilers set 
 
 ```bash
 # Clone the repository
-git clone https://github.com
+git clone https://github.com/EdwardTi11/EnTrance.git
 cd EnTrance
 
 # Create a virtual environment and install dependencies from uv.lock
