@@ -1,108 +1,67 @@
-import random
 import os
-from typing import Any
-
-from inspect_ai import eval
-from inspect_ai.dataset import MemoryDataset
-from inspect_ai.solver import Generate, TaskState, solver
-from inspect_evals.aime2025 import aime2025
-from inspect_evals.gpqa import gpqa_diamond
+import re
+from datasets import load_dataset
 from llama_cpp import Llama
-
-from model_design.engine import generate_text
 from model_design.adaptive_control import DecoderController
+from model_design.engine import generate_text
 
-MODEL_PATH = os.getenv("MODEL_PATH", os.path.join("models", "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"))
-CPU_COUNT = os.cpu_count() or 4
+MODEL_PATH = os.getenv("MODEL_PATH", "models/Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
+SEED = 42
+GEN_CONFIG = {"temperature": 0.8, "min_p": 0.05, "max_tokens": 4096}
 
-GEN_CONFIG = {
-    "temperature": 0.8,
-    "min_p": 0.05,
-    "max_tokens": 4096,
-}
+# Added the ground-truth answer column name for each dataset
+DATASETS = [
+    ("AIME 2025", "math-ai/aime25", "test", "problem", "answer"),
+    ("GPQA Diamond", "fingertap/GPQA-Diamond", "test", "Question", "Correct Answer"),
+]
 
-@solver
-def entrance_generation(
-    model_instance: Llama,
-    seed: int,
-    gen_config: dict[str, Any],
-    decoder_controller: bool = False,  # True for "entranced", False for "baseline"
-):
-    async def solve(state: TaskState, generate: Generate) -> TaskState:
-        model_instance.reset()
+model = Llama(model_path=MODEL_PATH, n_ctx=8192, n_threads=(os.cpu_count() or 4) // 2, verbose=False)
+
+def check_correctness(generated_text, ground_truth, dataset_name):
+    """Simple parser to evaluate model correctness against ground truth."""
+    if not ground_truth:
+        return False
         
-        controller = DecoderController() if decoder_controller else None
-        text, token_stats = generate_text(
-            model=model_instance,
-            prompt=state.user_prompt.text,
-            seed=seed,
-            temperature=gen_config["temperature"],
-            min_p=gen_config["min_p"],
-            max_tokens=gen_config["max_tokens"],
-            decoder_controller=controller,
-        )
-        state.output.completion = text
-        state.metadata["usage"] = token_stats.get("token_usage", {})
+    if "AIME" in dataset_name:
+        # AIME answers are integers (0-999). Extract numbers and check the last one.
+        numbers = re.findall(r'\b\d+\b', generated_text)
+        if numbers:
+            predicted = numbers[-1]
+            return str(predicted).strip() == str(ground_truth).strip()
+        return False
+    else:
+        # GPQA Diamond uses multiple-choice options. Check if the answer string is present.
+        return str(ground_truth).strip().upper() in generated_text.strip().upper()
 
-        return state
-    return solve
+for name, repo, split, prompt_col, answer_col in DATASETS:
+    dataset = load_dataset(repo, split=split).shuffle(seed=SEED)
+    prompts = dataset[prompt_col]
+    answers = dataset[answer_col] if answer_col in dataset.column_names else [None] * len(prompts)
+    
+    print(f"\n=== {name} ({len(prompts)} samples) ===")
 
-def main() -> int:
-    tasks = [
-        ("AIME 2025", aime2025()),
-        ("GPQA Diamond", gpqa_diamond(cot=False, epochs=1))
-    ]
-
-    for task_name, task in tasks:
-        task.epochs = 1
-        dataset_samples = list(task.dataset)
+    for mode, use_ctrl in [("BASELINE", False), ("ENTRANCED", True)]:
+        p_toks = c_toks = correct_count = 0
         
-        random.seed(42)
-        random.shuffle(dataset_samples)
-        task.dataset = MemoryDataset(dataset_samples)
-
-        print(f"\n==============================")
-        print(f"Benchmark Suite: {task_name} (Shuffled, {len(task.dataset)} samples)")
-        print(f"==============================")
-
-        model = Llama(
-            model_path=MODEL_PATH,
-            n_ctx=8192,
-            n_threads=(CPU_COUNT // 2),
-            verbose=False,
-            logits_all=False,
-        )
-
-        for mode in ("baseline", "entranced"):
-            task.solver = entrance_generation(
-                model_instance=model,
-                seed=42,
-                gen_config=GEN_CONFIG,
-                decoder_controller=(mode == "entranced"),
+        for prompt, gt in zip(prompts, answers):
+            model.reset()
+            output, stats = generate_text(
+                model=model,
+                prompt=prompt,
+                seed=SEED,
+                decoder_controller=DecoderController() if use_ctrl else None,
+                **GEN_CONFIG,
             )
-
-            log = eval(task, max_connections=1, display="none")[0]
             
-            total_prompt_tokens = 0
-            total_completion_tokens = 0
-            sample_count = len(log.samples) if log.samples else 0
-
-            if log.samples:
-                for sample in log.samples:
-                    usage = sample.metadata.get("usage", {})
-                    total_prompt_tokens += usage.get("prompt_tokens", 0)
-                    total_completion_tokens += usage.get("completion_tokens", 0)
-
-            avg_completion = total_completion_tokens / sample_count if sample_count > 0 else 0
-
-            print(f"[{mode.upper()}] Processed {sample_count} samples:")
-            print(f"  - Total Prompt Tokens: {total_prompt_tokens}")
-            print(f"  - Total Completion Tokens: {total_completion_tokens}")
-            print(f"  - Avg Completion Tokens / Sample: {avg_completion:.2f}")
-
-            del model
+            # Extract generation text (adjust if your generate_text returns a dict/object)
+            gen_text = output if isinstance(output, str) else str(output)
             
-    return 0
+            usage = stats.get("token_usage", {})
+            p_toks += usage.get("prompt_tokens", 0)
+            c_toks += usage.get("completion_tokens", 0)
+            
+            if check_correctness(gen_text, gt, name):
+                correct_count += 1
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+        accuracy = (correct_count / len(prompts)) * 100 if len(prompts) > 0 else 0
+        print(f"[{mode}] Accuracy: {accuracy:.1f}% ({correct_count}/{len(prompts)}) | Prompt: {p_toks} | Completion: {c_toks}")
