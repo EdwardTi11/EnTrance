@@ -8,8 +8,6 @@ Instead of applying a rigid, fixed temperature across an entire generation, EnTr
 
 The implementation runs directly on model logits using `llama.cpp` and `llama-cpp-python`.
 
----
-
 ## 💡 Core Concept
 
 At each generation step, EnTrance hooks into the model's logit outputs and observes core distribution properties:
@@ -24,8 +22,6 @@ By calculating an **entropy z-score** via a streaming Exponential Moving Average
 
 - **High Entropy (z > 0):** Unusually high uncertainty → **Higher Temperature** (encourages exploration).
 - **Low Entropy (z < 0):** High model confidence → **Lower Temperature** (encourages precision).
-
----
 
 ## 🛠 Architecture Flow
 
@@ -60,8 +56,6 @@ By calculating an **entropy z-score** via a streaming Exponential Moving Average
                                                     Selected Token ──> Loop Next Step
 ```
 
----
-
 ## ⚙️ Project Structure
 
 ```text
@@ -77,8 +71,6 @@ EnTrance/
 ├── README.md
 └── uv.lock                  # Reproducible dependency lockfile
 ```
-
----
 
 ## 🚀 Quick Start
 
@@ -162,7 +154,6 @@ Instead, she walked to the edge of the city and sat on a bench. She opened a sma
 
 </details>
 
-
 <details>
 <summary>EnTrance — Adaptive Temperature</summary>
 
@@ -202,7 +193,7 @@ The city’s light faded. The pulses slowed. The city began to dissolve like mis
 
 The next day, Elara returned to her ship. The planet was quiet. Her chronometer still read standard time. The city was gone from any sensor logs. No trace.
 
-But at night, when the stars aligned, she would sleep with a single blue crystal on her nightstand—crude, beautiful, unfinished. And sometimes, when the wind carried a distant hum, she would swear she heard the laughter of a child, and the
+But at night, when the stars aligned, she would sleep with a single blue crystal on her nightstand—crude, beautiful, unfinished. And sometimes, when the wind carried a distant hum, she would swear she heard the laughter of a child, and the [...]
 
 </details>
 
@@ -217,9 +208,6 @@ Both generations produce coherent science-fiction narratives, but they take diff
 
 This comparison illustrates how adaptive decoding can produce a different creative interpretation of the same prompt. It is an illustrative example, not a controlled measurement of creativity or generation quality.
 
-
----
-
 ## 🎯 Scope Limitations
 
 EnTrance operates entirely via **local logit manipulation on token-by-token processing loops**.
@@ -227,14 +215,9 @@ EnTrance operates entirely via **local logit manipulation on token-by-token proc
 - **Included:** Real-time logit observation, $O(1)$ streaming z-score statistical scaling, dynamic temperature selection, and per-step telemetry tracking.
 - **Excluded:** This framework does **not** implement energy-based search graphs, beam search variations, or lookahead predictive branching thresholds.
 
----
-
 ## 📜 License
 
 Distributed under the **MIT License**. See `LICENSE` for more information.
-
----
-
 ## 🙏 Acknowledgements
 
 EnTrance is built on top of open-source inference tooling:
